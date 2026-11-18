@@ -18,3 +18,6 @@ export * from "./components/portal-home";
 export * from "./components/tactical-map-view";
 export * from "./components/narrative-panel";
 export * from "./components/correlation-matrix";
+export * from "./components/concentration-map";
+export * from "./components/account-timeline";
+export * from "./components/narrative-workspace";

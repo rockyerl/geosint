@@ -5,16 +5,19 @@ import { GeosintRepository } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 import {
   buildNarrativeClusterViews,
+  buildNarrativeWorkspace,
   computeAccountStops,
   computeActorLinks,
   computeConcentration,
   computeNarrativeClusters,
+  parseWindowPreset,
+  presetWindow,
 } from "@/features/geosint/analysis";
 import type { GeoEvent, NarrativeItem, TimeWindow } from "@/features/geosint/types";
 
 const P48: TimeWindow = INITIAL_FIXTURE.demoPreset.window;
 
-describe("Spec 002 narrative / actor correlation (NAC-01..13, 15..18)", () => {
+describe("Spec 002 narrative / actor correlation (NAC-01..18)", () => {
   let repo: GeosintRepository;
 
   beforeEach(() => {
@@ -358,5 +361,105 @@ describe("Spec 002 narrative / actor correlation (NAC-01..13, 15..18)", () => {
     const res = repo.getAccountProfile("analis", "@tidak_ada", P48);
     expect(res.success).toBe(false);
     if (!res.success) expect(res.code).toBe("NOT_FOUND");
+  });
+
+  it("NAC-14: the /narasi selector returns computed TOP-01 data", () => {
+    const res = repo.getNarrativeWorkspace("analis", "TOP-01", P48);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const { data } = res;
+
+    expect(data.clusters.map((c) => c.aoiId)).toEqual(["AOI-01", "AOI-02"]);
+    // NC-01..NC-10 (10 distinct handles) mention AOI-01; NC-12..NC-13 mention AOI-02
+    expect([...data.clusters[0].itemIds].sort()).toEqual(range("NC-", 1, 10));
+    expect(data.clusters[0].distinctAccounts).toBe(10);
+    expect(data.clusters[0].totalContent).toBe(10);
+    expect([...data.clusters[1].itemIds].sort()).toEqual(["NC-12", "NC-13"]);
+    expect(data.clusters[1].distinctAccounts).toBe(2);
+
+    expect(data.areas).toEqual([
+      { aoiId: "AOI-01", distinctAccounts: 10, totalContent: 10, rank: 1 },
+      { aoiId: "AOI-02", distinctAccounts: 2, totalContent: 2, rank: 2 },
+      { aoiId: "AOI-03", distinctAccounts: 0, totalContent: 0, rank: null },
+    ]);
+    expect(data.unlocated?.itemIds).toEqual(["NC-11"]);
+    expect(data.crossEventActors.map((a) => a.account)).toEqual([
+      "@pantau_ops_01",
+      "@radar_lintas",
+    ]);
+
+    // Ties to NAC-01: the same clusters as computeNarrativeClusters
+    const computed = clustersOfSeed();
+    for (const cluster of data.clusters) {
+      expect(cluster).toEqual(computed.find((c) => c.id === cluster.id));
+    }
+
+    // Ties to NAC-03: same distinct-account count as the correlation workspace
+    const ws = repo.getCorrelationWorkspace("analis", "AOI-01", P48, "TOP-01");
+    expect(ws.success).toBe(true);
+    if (!ws.success) return;
+    expect(data.clusters[0].distinctAccounts).toBe(ws.data.distinctAccounts);
+
+    expect(JSON.stringify(data)).not.toMatch(/NAR-|CORR-/);
+  });
+
+  it("NAC-14: pimpinan and operator get FORBIDDEN, unknown topic NOT_FOUND, reversed window INVALID_WINDOW", () => {
+    for (const role of ["pimpinan", "operator"] as const) {
+      const res = repo.getNarrativeWorkspace(role, "TOP-01", P48);
+      expect(res.success).toBe(false);
+      if (!res.success) expect(res.code).toBe("FORBIDDEN");
+    }
+
+    const missing = repo.getNarrativeWorkspace("analis", "TOP-99", P48);
+    expect(missing.success).toBe(false);
+    if (!missing.success) expect(missing.code).toBe("NOT_FOUND");
+
+    const reversed = repo.getNarrativeWorkspace("analis", "TOP-01", { from: P48.to, to: P48.from });
+    expect(reversed.success).toBe(false);
+    if (!reversed.success) expect(reversed.code).toBe("INVALID_WINDOW");
+  });
+
+  it("NAC-14: window presets parse with a 48h fallback and bound the workspace", () => {
+    expect(parseWindowPreset(null)).toBe("48h");
+    expect(parseWindowPreset("x")).toBe("48h");
+    expect(parseWindowPreset("7d")).toBe("7d");
+
+    const w48 = presetWindow("48h", P48.to);
+    expect(Date.parse(w48.from)).toBe(Date.parse(P48.from));
+    expect(w48.to).toBe(P48.to);
+
+    const w24 = presetWindow("24h", P48.to);
+    expect(Date.parse(w24.from)).toBe(Date.parse("2026-11-16T09:00:00+07:00"));
+
+    // NL-01..NL-12 (TOP-03, AOI-03) all fall inside the last 24h; 4 distinct handles
+    const res = repo.getNarrativeWorkspace("analis", "TOP-03", w24);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data.clusters.map((c) => c.aoiId)).toEqual(["AOI-03"]);
+    expect(res.data.clusters[0].itemIds).toHaveLength(12);
+    expect(res.data.clusters[0].distinctAccounts).toBe(4);
+  });
+
+  it("NAC-14: the workspace is deterministic and independent of item order", () => {
+    const first = repo.getNarrativeWorkspace("analis", "TOP-01", P48);
+    const second = repo.getNarrativeWorkspace("analis", "TOP-01", P48);
+    expect(first).toEqual(second);
+
+    const topic = INITIAL_FIXTURE.topics.find((t) => t.id === "TOP-01");
+    expect(topic).toBeDefined();
+    if (!topic) return;
+    const input = {
+      areas: INITIAL_FIXTURE.areas,
+      events: INITIAL_FIXTURE.events,
+      topic,
+      window: P48,
+    };
+    const forward = buildNarrativeWorkspace({ ...input, items: INITIAL_FIXTURE.narrativeItems });
+    const backward = buildNarrativeWorkspace({
+      ...input,
+      items: [...INITIAL_FIXTURE.narrativeItems].reverse(),
+    });
+    expect(backward.clusters).toEqual(forward.clusters);
+    expect(backward.areas).toEqual(forward.areas);
   });
 });

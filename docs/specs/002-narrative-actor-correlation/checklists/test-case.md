@@ -61,3 +61,14 @@ Changes to rows above (rows kept as written; these notes win):
 ### Update 2026-11-19 (c) — movement stops (T216)
 
 - NAC-13 written: `profile.stops` for `@radar_lintas` on the v3 seed (AOI-02 N-205 → AOI-03 NL-01/04/06 → AOI-01 NC-05, events G-102, G-103, G-101), plus an inline `computeAccountStops` test (a return visit is a new stop, posts without an area are skipped, out-of-window events are not linked).
+
+### Update 2026-11-19 (d) — `/narasi` (T217)
+
+- NAC-14 runs on `getNarrativeWorkspace`: FORBIDDEN, NOT_FOUND, INVALID_WINDOW, presets, determinism.
+- M-205 (manual, as analis):
+  1. TOP-01 / 48 jam shows Aruna "10 akun · 10 unggahan", Sagara "2 akun · 2 unggahan", Nila "0 akun"; "Lokasi tidak diketahui" lists NC-11.
+  2. The Aruna cluster shows trend 2 / 8, 1.0 per account, coverage %, and 10 posts.
+  3. Cross-event actors are `@pantau_ops_01` and `@radar_lintas`.
+  4. "Lihat pergerakan" on `@radar_lintas` shows Bukit Sagara 16 Nov 09:40 (G-102) → Dataran Nila 18:00–20:00 (G-103) → Sektor Sungai Aruna 21:30 (G-101).
+  5. Switching to TOP-03 shows Nila 4 accounts / 12 posts; `?window=7d` survives a reload.
+  6. As pimpinan the nav item is hidden; switching role to pimpinan on `/narasi` goes to `/dashboard`; breadcrumb reads "Konsentrasi Narasi & Aktor".

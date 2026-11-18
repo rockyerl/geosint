@@ -2,13 +2,16 @@ import type {
   AccountProfile,
   AccountStop,
   ActorLink,
+  Area,
   ComputedCluster,
   CorrelationTrendBucket,
   GeoEvent,
   NarrativeCluster,
   NarrativeItem,
   NarrativeTheme,
+  NarrativeWorkspaceData,
   TimeWindow,
+  Topic,
 } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -223,4 +226,60 @@ export function buildNarrativeClusterViews(
       },
     ];
   });
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+export type WindowPreset = "24h" | "48h" | "7d";
+
+/** Window presets (Q11). */
+export const WINDOW_PRESETS: { id: WindowPreset; label: string; hours: number }[] = [
+  { id: "24h", label: "24 jam", hours: 24 },
+  { id: "48h", label: "48 jam", hours: 48 },
+  { id: "7d", label: "7 hari", hours: 168 },
+];
+
+export const DEFAULT_WINDOW_PRESET: WindowPreset = "48h";
+
+/** Reads a `?window=` value; anything unknown falls back to the default. */
+export function parseWindowPreset(value: string | null | undefined): WindowPreset {
+  return WINDOW_PRESETS.some((p) => p.id === value)
+    ? (value as WindowPreset)
+    : DEFAULT_WINDOW_PRESET;
+}
+
+/** The preset window ending at `to`. */
+export function presetWindow(preset: WindowPreset, to: string): TimeWindow {
+  const hours = WINDOW_PRESETS.find((p) => p.id === preset)?.hours ?? 48;
+  return { from: new Date(Date.parse(to) - hours * HOUR_MS).toISOString(), to };
+}
+
+/** Concentration, clusters and cross-event actors for one topic and window (spec 002 FR-212..213). */
+export function buildNarrativeWorkspace(input: {
+  areas: Area[];
+  items: NarrativeItem[];
+  events: GeoEvent[];
+  topic: Topic;
+  window: TimeWindow;
+}): NarrativeWorkspaceData {
+  const { areas, items, events, topic, window } = input;
+  const all = computeNarrativeClusters(items, window);
+  const ranked = computeConcentration(all, topic.id);
+  return {
+    topic,
+    window,
+    clusters: ranked,
+    areas: areas.map((area) => {
+      const index = ranked.findIndex((c) => c.aoiId === area.id);
+      const cluster = index >= 0 ? ranked[index] : undefined;
+      return {
+        aoiId: area.id,
+        distinctAccounts: cluster?.distinctAccounts ?? 0,
+        totalContent: cluster?.totalContent ?? 0,
+        rank: index >= 0 ? index + 1 : null,
+      };
+    }),
+    unlocated: all.find((c) => c.id === clusterId(topic.id, null)) ?? null,
+    crossEventActors: computeActorLinks(items, events, window).filter((a) => a.isCrossEvent),
+  };
 }

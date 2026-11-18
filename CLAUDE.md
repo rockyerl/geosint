@@ -96,6 +96,8 @@ Details and evidence: `docs/project_state.md`.
 
 **Update 2026-11-19:** narrative clustering and distinct-account counts are computed (`analysis.ts`, spec 002); the UI labels still apply the old threshold until T209–T212.
 
+**Update 2026-11-19 (b):** `/narasi` (analyst) shows the computed concentration map, ranked clusters, cross-event actors and account movement (T217).
+
 ## 6. Rules for working on the PoC
 
 1. **Logic in `repository.ts`, UI in components.** Repository methods take `role` first and

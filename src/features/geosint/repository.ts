@@ -28,9 +28,11 @@ import {
   CorrelationFinding,
   AccountProfile,
   ActorLink,
+  NarrativeWorkspaceData,
 } from "./types";
 import {
   buildNarrativeClusterViews,
+  buildNarrativeWorkspace,
   clusterId,
   computeAccountProfile,
   computeActorLinks,
@@ -668,6 +670,34 @@ export class GeosintRepository {
       };
     }
     return { success: true, profile: structuredClone(profile) };
+  }
+
+  /** Narrative workspace for /narasi: concentration, clusters, actors; analyst only (spec 002 FR-212, NAC-14). */
+  public getNarrativeWorkspace(
+    role: Role,
+    topicId: string,
+    window: TimeWindow
+  ):
+    | { success: true; data: NarrativeWorkspaceData }
+    | { success: false; code: "FORBIDDEN" | "INVALID_WINDOW" | "NOT_FOUND"; error: string } {
+    const guard = this.analystWindowError(role, window, "ruang kerja narasi");
+    if (guard) return guard;
+    const topic = this.state.topics.find((t) => t.id === topicId);
+    if (!topic) {
+      return { success: false, code: "NOT_FOUND", error: `Topik ${topicId} tidak ditemukan` };
+    }
+    return {
+      success: true,
+      data: structuredClone(
+        buildNarrativeWorkspace({
+          areas: this.state.areas,
+          items: this.state.narrativeItems,
+          events: this.state.events,
+          topic,
+          window,
+        })
+      ),
+    };
   }
 
   public getNarrativeItem(

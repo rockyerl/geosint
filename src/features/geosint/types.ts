@@ -269,6 +269,29 @@ export interface AccountProfile extends ActorLink {
   stops: AccountStop[]; // time order
 }
 
+/** One area's share of a topic in a window (spec 002 FR-213); every area appears, 0 when silent. */
+export interface AreaConcentration {
+  aoiId: string;
+  distinctAccounts: number;
+  totalContent: number;
+  /** 1-based rank from computeConcentration; null when the area has no posts. */
+  rank: number | null;
+}
+
+/** Data behind the /narasi route (spec 002 FR-212..214, NAC-14). All numbers are computed. */
+export interface NarrativeWorkspaceData {
+  topic: Topic;
+  window: TimeWindow;
+  /** Located clusters of the topic, ranked (computeConcentration order). */
+  clusters: ComputedCluster[];
+  /** Every area in state order. */
+  areas: AreaConcentration[];
+  /** The topic's unlocated cluster, or null. */
+  unlocated: ComputedCluster | null;
+  /** Cross-event accounts in the window, all topics, sorted by account. */
+  crossEventActors: ActorLink[];
+}
+
 export interface CorrelationWorkspaceData {
   aoi: Area;
   window: TimeWindow;

@@ -26,6 +26,7 @@ import {
   XCircle,
   Info,
   Layers,
+  Users,
 } from "lucide-react";
 
 interface NavItem {
@@ -65,6 +66,8 @@ function getBreadcrumb(pathname: string): { category: string; title: string } {
     return { category: "Data & Tata Kelola", title: "Jejak Audit Keamanan" };
   if (pathname.startsWith("/kejadian/"))
     return { category: "Posko Komando", title: "Detail Kejadian Taktis" };
+  if (pathname === "/narasi")
+    return { category: "Posko Komando", title: "Konsentrasi Narasi & Aktor" };
   return { category: "Pusat Komando", title: "GEOSINT Kodiklat TNI AD" };
 }
 
@@ -139,6 +142,13 @@ export function GeosintShell({ children }: { children: React.ReactNode }) {
           badgeVariant: "amber",
         },
         {
+          href: "/narasi",
+          title: "Konsentrasi Narasi & Aktor",
+          subtitle: "Akun · area · waktu · pergerakan",
+          icon: Users,
+          roles: ["analis"],
+        },
+        {
           href: "/wallboard",
           title: "Monitoring Wallboard (16:9)",
           subtitle: "Layar posko kendali video-wall",
@@ -173,11 +183,17 @@ export function GeosintShell({ children }: { children: React.ReactNode }) {
 
   const handleRoleChange = (newRole: Role) => {
     setRole(newRole);
-    if (newRole === "operator" && (pathname === "/peta" || pathname.startsWith("/peta/"))) {
+    if (
+      newRole === "operator" &&
+      (pathname === "/peta" || pathname.startsWith("/peta/") || pathname === "/narasi")
+    ) {
       router.push("/sumber");
     } else if (
       newRole === "pimpinan" &&
-      (pathname === "/peta" || pathname === "/sumber" || pathname === "/audit")
+      (pathname === "/peta" ||
+        pathname === "/sumber" ||
+        pathname === "/audit" ||
+        pathname === "/narasi")
     ) {
       router.push("/dashboard");
     }

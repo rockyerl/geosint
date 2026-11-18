@@ -224,3 +224,8 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 
 - `getAccountProfile` now returns computed `stops` in time order (area, first/last post time, posts, events in that area in the window). For example, `@radar_lintas` goes Sagara → Nila → Aruna. Built, not verified.
 - The timeline UI for these stops comes with the `/narasi` route (T217).
+
+## 16. Update 2026-11-19 — `/narasi` route
+
+- DS-2 steps 2.1, 2.2, 2.4 and 2.5 are on screen with computed data: concentration map, ranked clusters with the posts behind them, cross-event actors, and account movement (T217). Built, not verified.
+- DS-2.3 (verification status) waits for spec 005. The event detail (hand-typed CORR data) waits for T218.
