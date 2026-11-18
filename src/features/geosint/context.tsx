@@ -16,6 +16,7 @@ import {
   Briefing,
   Evidence,
   GeoEvent,
+  ImportDraft,
   Review,
 } from "./types";
 import { INITIAL_FIXTURE, STORAGE_KEY } from "./fixtures";
@@ -26,13 +27,6 @@ export interface ToastMessage {
   type: "info" | "success" | "warning" | "error";
   message: string;
   timestamp: string;
-}
-
-export interface ImportDraftPayload {
-  batchId: string;
-  evidence?: Evidence;
-  reason?: string;
-  aoiId?: string;
 }
 
 interface GeosintContextValue {
@@ -56,7 +50,7 @@ interface GeosintContextValue {
     note: string,
     evidenceIds: string[]
   ) => { success: boolean; error?: string; review?: Review; event?: GeoEvent };
-  simulateImport: (draft: ImportDraftPayload) => {
+  simulateImport: (draft: ImportDraft) => {
     success: boolean;
     isDuplicate?: boolean;
     message?: string;
@@ -219,7 +213,7 @@ export function GeosintProvider({ children }: { children: React.ReactNode }) {
   );
 
   const simulateImport = useCallback(
-    (draft: ImportDraftPayload) => {
+    (draft: ImportDraft) => {
       const activeRepo = new GeosintRepository(state);
       const res = activeRepo.simulateImport(role, draft);
       commitState(activeRepo.getState());

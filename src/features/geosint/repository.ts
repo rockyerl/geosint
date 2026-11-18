@@ -11,6 +11,7 @@ import {
   EventSummaryProjection,
   Evidence,
   GeoEvent,
+  ImportDraft,
   Review,
   Role,
   Scene,
@@ -122,9 +123,17 @@ export function generateDraftSummary(
     limitations = `Indikasi genangan SAR teramati secara spasial, namun kepastian keterputusan total jembatan dan batas kedalaman air masih memerlukan verifikasi fisik lapangan. Terdapat satu konten tanpa metadata wilayah (NC-11) dan agregat akun di bawah ambang batas minimum RAB (3 < 10 akun).`;
     nextAction = `Pimpinan menginstruksikan petugas lapangan segera mengecek akses jembatan KM 14 di Sektor Aruna dan melaporkan kondisi terkini untuk penilaian kesiapan rute latihan.`;
   } else if (event.kind === "hotspot") {
-    findings = `Sensor termal FIRMS simulasi mendeteksi klaster titik panas pada ${event.observedAt} dengan tingkat kepercayaan awal.`;
-    limitations = `Data sumber FIRMS saat ini berstatus tertunda (>12 jam). Belum ada citra optik resolusi tinggi resolusi awan rendah.`;
-    nextAction = `Koordinasi petugas patroli Bukit Sagara untuk memastikan ada/tidaknya pembakaran vegetasi.`;
+    // D2: once a field confirmation is linked, the draft states "bukan ancaman" (DS-3); spec 004 replaces the template.
+    const fieldConfirmation = evidenceList.find((e) => e.kind === "field_confirmation");
+    if (fieldConfirmation) {
+      findings = `Sensor termal FIRMS simulasi mendeteksi klaster titik panas pada ${event.observedAt}. Konfirmasi lapangan (${fieldConfirmation.id}): ${fieldConfirmation.label}. Kesimpulan: asap memang ada, namun bukan ancaman.`;
+      limitations = `Deteksi awal berasal dari sumber FIRMS yang tertunda (>12 jam); kesimpulan bertumpu pada laporan patroli lapangan.`;
+      nextAction = `Tidak diperlukan tindakan lanjutan; titik panas berikutnya dipantau secara rutin.`;
+    } else {
+      findings = `Sensor termal FIRMS simulasi mendeteksi klaster titik panas pada ${event.observedAt} dengan tingkat kepercayaan awal.`;
+      limitations = `Data sumber FIRMS saat ini berstatus tertunda (>12 jam). Belum ada citra optik resolusi tinggi resolusi awan rendah.`;
+      nextAction = `Koordinasi petugas patroli Bukit Sagara untuk memastikan ada/tidaknya pembakaran vegetasi.`;
+    }
   } else if (event.kind === "land_change") {
     findings = `Citra optik tunggal tertanggal ${event.observedAt} memperlihatkan variasi rona lahan pada koordinat sektor.`;
     limitations = `Tingkat tutupan awan mencapai 38%. Pasangan citra acuan sebelum perubahan belum tersedia untuk analisis differensiasi temporal.`;
@@ -155,6 +164,32 @@ export class GeosintRepository {
 
   public advanceClock(minutes: number = 1): void {
     this.state.demoNow = advanceClockMinutes(this.state.demoNow, minutes);
+  }
+
+  /** Deterministic audit ID derived from state: AUD-0001, AUD-0002, … (FIX-009; reset restarts at 0001). */
+  private recordAudit(entry: Omit<AuditEntry, "id">): void {
+    const id = `AUD-${String(this.state.audits.length + 1).padStart(4, "0")}`;
+    this.state.audits.unshift({ id, ...entry });
+  }
+
+  /** Validates references in an import batch (FIX-006). Order matters: area, payload, event, source. */
+  private validateImportDraft(
+    draft: ImportDraft
+  ): { ok: true; evidence: Evidence } | { ok: false; reason: string } {
+    if (draft.aoiId !== undefined && !this.state.areas.some((a) => a.id === draft.aoiId)) {
+      return { ok: false, reason: "AOI tidak dikenal" };
+    }
+    const evidence = draft.evidence;
+    if (!evidence) {
+      return { ok: false, reason: "Payload batch tidak valid" };
+    }
+    if (!this.state.events.some((e) => e.id === evidence.eventId)) {
+      return { ok: false, reason: "Kejadian tidak dikenal" };
+    }
+    if (!this.state.sources.some((s) => s.id === evidence.sourceId)) {
+      return { ok: false, reason: "Sumber tidak dikenal" };
+    }
+    return { ok: true, evidence };
   }
 
   public listEvents(
@@ -675,21 +710,21 @@ export class GeosintRepository {
       };
     }
 
-    // Rule: Penyelesaian Aruna (G-101 -> resolved) MEMERLUKAN bukti tipe field_confirmation (E-06)
-    if (eventId === "G-101" && targetStatus === "resolved") {
+    // Rule (FIX-010): resolving any event requires linked field_confirmation evidence
+    if (targetStatus === "resolved") {
       const activeEv = this.state.evidence.filter((ev) => event.evidenceIds.includes(ev.id));
       const hasFieldConf = activeEv.some((ev) => ev.kind === "field_confirmation");
       if (!hasFieldConf) {
         return {
           success: false,
           code: "EVIDENCE_REQUIRED",
-          error:
-            "Penyelesaian Sektor Sungai Aruna memerlukan bukti konfirmasi lapangan (field_confirmation). Harap impor laporan lapangan terlebih dahulu.",
+          error: `Penyelesaian kejadian ${eventId} memerlukan bukti konfirmasi lapangan (field_confirmation). Harap impor laporan lapangan terlebih dahulu.`,
         };
       }
     }
 
-    const reviewId = `REV-${Date.now().toString().slice(-6)}`;
+    // FIX-009: deterministic ID from state, not the clock
+    const reviewId = `REV-${String(this.state.reviews.length + 1).padStart(4, "0")}`;
     const newReview: Review = {
       id: reviewId,
       eventId,
@@ -705,8 +740,7 @@ export class GeosintRepository {
     this.state.reviews.push(newReview);
 
     // Audit log
-    const auditEntry: AuditEntry = {
-      id: `AUD-${Date.now().toString().slice(-6)}`,
+    this.recordAudit({
       timestamp: this.state.demoNow,
       actorId: "analis-01",
       role: "analis",
@@ -714,8 +748,7 @@ export class GeosintRepository {
       targetId: eventId,
       details: `Status diubah dari ${event.status} ke ${targetStatus}. Catatan: ${note.trim().slice(0, 60)}...`,
       success: true,
-    };
-    this.state.audits.unshift(auditEntry);
+    });
 
     // Advance demo clock by 1 minute
     this.advanceClock(1);
@@ -729,7 +762,7 @@ export class GeosintRepository {
 
   public simulateImport(
     role: Role,
-    draft: { batchId: string; evidence?: Evidence; reason?: string; aoiId?: string }
+    draft: ImportDraft
   ):
     | {
         success: true;
@@ -753,11 +786,10 @@ export class GeosintRepository {
       };
     }
 
-    // Invalid batch trigger (AOI tidak dikenal, e.g. AOI-99 or B-102)
-    if (draft.batchId === "B-102" || draft.aoiId === "AOI-99" || draft.reason) {
-      const reason = draft.reason || "AOI tidak dikenal";
-
-      const batchLog: BatchLog = {
+    // FR-001 FIX-006: reject on unknown references, never on a hard-coded batch ID.
+    const validation = this.validateImportDraft(draft);
+    if (!validation.ok) {
+      this.state.batchLogs.unshift({
         batchId: draft.batchId,
         timestamp: this.state.demoNow,
         status: "failed",
@@ -765,132 +797,111 @@ export class GeosintRepository {
         acceptedCount: 0,
         duplicateCount: 0,
         failedCount: 1,
-        reason,
-      };
-      this.state.batchLogs.unshift(batchLog);
-
-      const audit: AuditEntry = {
-        id: `AUD-${Date.now().toString().slice(-6)}`,
+        reason: validation.reason,
+      });
+      this.recordAudit({
         timestamp: this.state.demoNow,
         actorId: "operator-01",
         role: "operator",
         action: "import_batch",
         targetId: draft.batchId,
-        details: `Batch ${draft.batchId} gagal: ${reason} (${draft.aoiId || "AOI-99"})`,
+        details: `Batch ${draft.batchId} gagal: ${validation.reason}`,
         success: false,
-      };
-      this.state.audits.unshift(audit);
-
-      // Advance clock 1 minute even on recorded failure
+      });
       this.advanceClock(1);
-
       return {
         success: false,
         code: "INVALID_BATCH",
         batchId: draft.batchId,
-        error: reason,
+        error: validation.reason,
       };
     }
 
-    // Valid import handler (e.g. B-101 with E-06)
-    if (draft.evidence) {
-      const ev = draft.evidence;
-      const alreadyProcessed =
-        this.state.processedBatchIds.includes(draft.batchId) ||
-        this.state.evidence.some((e) => e.id === ev.id);
+    const ev = validation.evidence;
+    const alreadyProcessed =
+      this.state.processedBatchIds.includes(draft.batchId) ||
+      this.state.evidence.some((e) => e.id === ev.id);
 
-      if (alreadyProcessed) {
-        const batchLog: BatchLog = {
-          batchId: draft.batchId,
-          timestamp: this.state.demoNow,
-          status: "duplicate",
-          itemCount: 1,
-          acceptedCount: 0,
-          duplicateCount: 1,
-          failedCount: 0,
-          reason: "Batch duplikat terdeteksi",
-        };
-        this.state.batchLogs.unshift(batchLog);
-
-        const audit: AuditEntry = {
-          id: `AUD-${Date.now().toString().slice(-6)}`,
-          timestamp: this.state.demoNow,
-          actorId: "operator-01",
-          role: "operator",
-          action: "import_batch",
-          targetId: draft.batchId,
-          details: `Batch ${draft.batchId} duplikat: Bukti ${ev.id} sudah ada dalam sistem`,
-          success: true,
-        };
-        this.state.audits.unshift(audit);
-
-        this.advanceClock(1);
-
-        return {
-          success: true,
-          isDuplicate: true,
-          batchId: draft.batchId,
-          message: `Duplikat: Bukti ${ev.id} sudah terdaftar sebelumnya`,
-          evidence: ev,
-        };
-      }
-
-      // Add evidence to state
-      this.state.evidence.push(ev);
-
-      // Link to target event without altering event status
-      const event = this.state.events.find((e) => e.id === ev.eventId);
-      if (event && !event.evidenceIds.includes(ev.id)) {
-        event.evidenceIds.push(ev.id);
-      }
-
-      // Update source freshness for SRC-INT
-      const srcIndex = this.state.sources.findIndex((s) => s.id === ev.sourceId);
-      if (srcIndex !== -1) {
-        this.state.sources[srcIndex].lastSuccessfulImportAt = this.state.demoNow;
-      }
-
-      this.state.processedBatchIds.push(draft.batchId);
-
+    if (alreadyProcessed) {
       const batchLog: BatchLog = {
         batchId: draft.batchId,
         timestamp: this.state.demoNow,
-        status: "success",
+        status: "duplicate",
         itemCount: 1,
-        acceptedCount: 1,
-        duplicateCount: 0,
+        acceptedCount: 0,
+        duplicateCount: 1,
         failedCount: 0,
+        reason: "Batch duplikat terdeteksi",
       };
       this.state.batchLogs.unshift(batchLog);
 
-      const audit: AuditEntry = {
-        id: `AUD-${Date.now().toString().slice(-6)}`,
+      this.recordAudit({
         timestamp: this.state.demoNow,
         actorId: "operator-01",
         role: "operator",
         action: "import_batch",
         targetId: draft.batchId,
-        details: `Batch ${draft.batchId} berhasil diimpor: ${ev.label} (${ev.id}) dikaitkan ke ${ev.eventId}`,
+        details: `Batch ${draft.batchId} duplikat: Bukti ${ev.id} sudah ada dalam sistem`,
         success: true,
-      };
-      this.state.audits.unshift(audit);
+      });
 
       this.advanceClock(1);
 
       return {
         success: true,
-        isDuplicate: false,
+        isDuplicate: true,
         batchId: draft.batchId,
-        message: `Batch ${draft.batchId} berhasil: Bukti ${ev.id} ditambahkan`,
+        message: `Duplikat: Bukti ${ev.id} sudah terdaftar sebelumnya`,
         evidence: ev,
       };
     }
 
-    return {
-      success: false,
-      code: "INVALID_BATCH",
+    // Add evidence to state
+    this.state.evidence.push(ev);
+
+    // Link to target event without altering event status
+    const event = this.state.events.find((e) => e.id === ev.eventId);
+    if (event && !event.evidenceIds.includes(ev.id)) {
+      event.evidenceIds.push(ev.id);
+    }
+
+    // Update source freshness for SRC-INT
+    const srcIndex = this.state.sources.findIndex((s) => s.id === ev.sourceId);
+    if (srcIndex !== -1) {
+      this.state.sources[srcIndex].lastSuccessfulImportAt = this.state.demoNow;
+    }
+
+    this.state.processedBatchIds.push(draft.batchId);
+
+    const batchLog: BatchLog = {
       batchId: draft.batchId,
-      error: "Payload batch tidak valid",
+      timestamp: this.state.demoNow,
+      status: "success",
+      itemCount: 1,
+      acceptedCount: 1,
+      duplicateCount: 0,
+      failedCount: 0,
+    };
+    this.state.batchLogs.unshift(batchLog);
+
+    this.recordAudit({
+      timestamp: this.state.demoNow,
+      actorId: "operator-01",
+      role: "operator",
+      action: "import_batch",
+      targetId: draft.batchId,
+      details: `Batch ${draft.batchId} berhasil diimpor: ${ev.label} (${ev.id}) dikaitkan ke ${ev.eventId}`,
+      success: true,
+    });
+
+    this.advanceClock(1);
+
+    return {
+      success: true,
+      isDuplicate: false,
+      batchId: draft.batchId,
+      message: `Batch ${draft.batchId} berhasil: Bukti ${ev.id} ditambahkan`,
+      evidence: ev,
     };
   }
 
@@ -963,8 +974,7 @@ export class GeosintRepository {
 
     this.state.briefings.unshift(newBriefing);
 
-    const audit: AuditEntry = {
-      id: `AUD-${Date.now().toString().slice(-6)}`,
+    this.recordAudit({
       timestamp: this.state.demoNow,
       actorId: "analis-01",
       role: "analis",
@@ -972,8 +982,7 @@ export class GeosintRepository {
       targetId: newBriefing.id,
       details: `Briefing v${nextVersion} disetujui dan dipublikasikan untuk ${eventId}`,
       success: true,
-    };
-    this.state.audits.unshift(audit);
+    });
 
     this.advanceClock(1);
 
@@ -1004,8 +1013,7 @@ export class GeosintRepository {
 
     this.state = structuredClone(INITIAL_FIXTURE);
 
-    const audit: AuditEntry = {
-      id: `AUD-RESET-${Date.now().toString().slice(-6)}`,
+    this.recordAudit({
       timestamp: INITIAL_FIXTURE.demoNow,
       actorId: "operator-01",
       role: "operator",
@@ -1013,8 +1021,7 @@ export class GeosintRepository {
       targetId: "SYSTEM",
       details: "Sistem berhasil di-reset kembali ke seed awal fixtureVersion 2",
       success: true,
-    };
-    this.state.audits.unshift(audit);
+    });
 
     return {
       success: true,

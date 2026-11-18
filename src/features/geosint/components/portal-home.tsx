@@ -173,8 +173,9 @@ export function PortalHome() {
                 Genangan di Sektor Sungai Aruna (AOI-01)
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                Dua citra radar Sentinel SAR (sebelum & sesudah hujan), lapisan indikasi genangan,
-                laporan akses lapangan, dan simulasi impor bukti konfirmasi terestrial (E-06).
+                Dua citra radar SAR Sentinel simulasi (sebelum & sesudah hujan), lapisan indikasi
+                genangan, laporan akses lapangan, dan simulasi impor bukti konfirmasi terestrial
+                (E-06).
               </p>
             </div>
 

@@ -523,9 +523,20 @@ export const INITIAL_FIXTURE: DemoState = {
         label: "Petugas mengonfirmasi genangan sebagian area dan pengalihan satu akses",
       },
     },
+    sagaraImport: {
+      batchId: "B-103",
+      evidence: {
+        id: "E-08",
+        eventId: "G-102",
+        sourceId: "SRC-INT",
+        kind: "field_confirmation",
+        observedAt: "2026-11-17T08:10:00+07:00",
+        label:
+          "Patroli: pembakaran lahan terkendali oleh warga, tidak ada ancaman bagi area latihan",
+      },
+    },
     invalidImport: {
       batchId: "B-102",
-      reason: "AOI tidak dikenal",
       aoiId: "AOI-99",
     },
   },

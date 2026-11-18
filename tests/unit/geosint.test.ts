@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { GeosintRepository, getSourceFreshness } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 
-describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-10)", () => {
+describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
   let repo: GeosintRepository;
 
   beforeEach(() => {
@@ -107,14 +107,11 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-10)", () => {
     const initialEvidenceCount = stateBefore.evidence.length;
 
     // 1. Invalid import (B-102)
-    const invalidRes = repo.simulateImport("operator", {
-      batchId: "B-102",
-      reason: "AOI tidak dikenal",
-      aoiId: "AOI-99",
-    });
+    const invalidRes = repo.simulateImport("operator", INITIAL_FIXTURE.demoActions.invalidImport);
     expect(invalidRes.success).toBe(false);
     if (!invalidRes.success) {
       expect(invalidRes.code).toBe("INVALID_BATCH");
+      expect(invalidRes.error).toBe("AOI tidak dikenal");
     }
     expect(repo.getState().evidence.length).toBe(initialEvidenceCount);
 
@@ -188,7 +185,8 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-10)", () => {
 
   // G-DEMO-08: Ganti peran ke pimpinan lalu buka URL serba detail
   // Layar menampilkan proyeksi ringkas. Bukti lengkap, catatan internal dan aksi ubah tidak tampil
-  it("G-DEMO-08: Role projection isolates sensitive internal notes from pimpinan and blocks mutations", () => {
+  // Proyeksi ini hanya di repository/UI, bukan kontrol akses: peran dipilih di browser (ADR-002)
+  it("G-DEMO-08: Repository projection hides internal notes from pimpinan and blocks mutations (UI projection, not access control)", () => {
     // Analyst leaves an internal review note
     repo.reviewEvent("analis", "G-101", "follow_up_required", "CATATAN_INTERNAL_ANALIS_RAHASIA", [
       "E-01",
@@ -382,9 +380,9 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-10)", () => {
   });
 
   // G-DEMO-15: Terbitkan briefing awal, impor E-06, lalu terbitkan ulang
-  // Versi awal memuat korelasi dan permintaan cek. Setelah impor, versi awal tetap tersedia sebagai arsip.
+  // Versi awal memuat korelasi dan permintaan cek. Setelah impor, versi awal tetap tersimpan (tidak dihapus).
   // Versi baru memuat laporan lanjutan dan hasil peninjauan analis.
-  it("G-DEMO-15: Publish initial briefing, import E-06, then republish v2; v1 archived, v2 contains updated resolution", () => {
+  it("G-DEMO-15: Publish initial briefing, import E-06, then republish v2; v1 retained, v2 contains updated resolution", () => {
     // 1. Initial review & publish v1 briefing
     repo.reviewEvent(
       "analis",
@@ -444,5 +442,195 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-10)", () => {
     expect(g101Briefings.length).toBe(2);
     expect(g101Briefings.some((b) => b.version === 1)).toBe(true);
     expect(g101Briefings.some((b) => b.version === 2)).toBe(true);
+  });
+
+  // G-DEMO-16: DS-3 ending. Operator imports B-103 (E-08), analis resolves G-102 and publishes.
+  it("G-DEMO-16: Sagara patrol import (B-103/E-08) lets analis resolve G-102 and publish a briefing saying 'bukan ancaman'", () => {
+    const draftBefore = repo.getEvent("analis", "G-102");
+    expect(draftBefore.success).toBe(true);
+    if (draftBefore.success) {
+      expect(draftBefore.data.draftSummary.findings).not.toContain("bukan ancaman");
+    }
+
+    // Analis may not import
+    const forbidden = repo.simulateImport("analis", INITIAL_FIXTURE.demoActions.sagaraImport);
+    expect(forbidden.success).toBe(false);
+    if (!forbidden.success) {
+      expect(forbidden.code).toBe("FORBIDDEN");
+    }
+
+    // Operator imports B-103
+    const imp = repo.simulateImport("operator", INITIAL_FIXTURE.demoActions.sagaraImport);
+    expect(imp.success).toBe(true);
+    if (imp.success) {
+      expect(imp.isDuplicate).toBe(false);
+    }
+    const g102 = repo.getState().events.find((e) => e.id === "G-102");
+    expect(g102?.evidenceIds).toContain("E-08");
+
+    // Draft now states the conclusion and cites E-08
+    const draftAfter = repo.getEvent("analis", "G-102");
+    expect(draftAfter.success).toBe(true);
+    if (!draftAfter.success) return;
+    const draft = draftAfter.data.draftSummary;
+    expect(draft.findings).toContain("bukan ancaman");
+    expect(draft.findings).toContain("E-08");
+
+    // Resolve with E-08
+    const resolveRes = repo.reviewEvent(
+      "analis",
+      "G-102",
+      "resolved",
+      "Patroli mengonfirmasi pembakaran lahan terkendali oleh warga",
+      ["E-04", "E-08"]
+    );
+    expect(resolveRes.success).toBe(true);
+    if (resolveRes.success) {
+      expect(resolveRes.event.status).toBe("resolved");
+    }
+
+    // Publish the briefing from the draft
+    const briefRes = repo.publishBriefing("analis", "G-102", {
+      findings: draft.findings,
+      limitations: draft.limitations,
+      nextAction: draft.nextAction,
+    });
+    expect(briefRes.success).toBe(true);
+    if (briefRes.success) {
+      expect(briefRes.briefing.version).toBe(1);
+      expect(briefRes.briefing.snapshot.status).toBe("resolved");
+      expect(briefRes.briefing.snapshot.findings).toContain("bukan ancaman");
+      expect(briefRes.briefing.snapshot.evidenceIds).toContain("E-08");
+    }
+
+    // KPI: G-101 and G-103 active, G-102 resolved
+    const kpis = repo.getKpis();
+    expect(kpis.activeEvents).toBe(2);
+    expect(kpis.resolvedEvents).toBe(1);
+  });
+
+  // G-DEMO-17: unknown event reference is rejected and logged
+  it("G-DEMO-17: Import with unknown eventId is rejected with INVALID_BATCH, logged as failed, and adds no evidence", () => {
+    const evidenceBefore = repo.getState().evidence.length;
+
+    const res = repo.simulateImport("operator", {
+      batchId: "B-198",
+      evidence: {
+        id: "E-98",
+        eventId: "G-999",
+        sourceId: "SRC-INT",
+        kind: "field_report",
+        observedAt: "2026-11-17T08:00:00+07:00",
+        label: "Uji: kejadian tidak dikenal",
+      },
+    });
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      expect(res.code).toBe("INVALID_BATCH");
+      expect(res.error).toContain("Kejadian tidak dikenal");
+    }
+
+    const state = repo.getState();
+    expect(state.evidence.length).toBe(evidenceBefore);
+    expect(state.batchLogs[0].batchId).toBe("B-198");
+    expect(state.batchLogs[0].status).toBe("failed");
+    expect(state.batchLogs[0].reason).toContain("Kejadian tidak dikenal");
+    expect(state.processedBatchIds).not.toContain("B-198");
+    expect(state.audits[0].success).toBe(false);
+  });
+
+  // G-DEMO-18: validation depends on references, never on the batch ID
+  it("G-DEMO-18: Import validation rejects unknown AOI, unknown source and empty payload, and accepts a valid batch named B-102", () => {
+    const aoiRes = repo.simulateImport("operator", { batchId: "B-199", aoiId: "AOI-99" });
+    expect(aoiRes.success).toBe(false);
+    if (!aoiRes.success) {
+      expect(aoiRes.code).toBe("INVALID_BATCH");
+      expect(aoiRes.error).toBe("AOI tidak dikenal");
+    }
+
+    const sourceRes = repo.simulateImport("operator", {
+      batchId: "B-197",
+      evidence: {
+        id: "E-97",
+        eventId: "G-101",
+        sourceId: "SRC-XXX",
+        kind: "field_report",
+        observedAt: "2026-11-17T08:00:00+07:00",
+        label: "Uji: sumber tidak dikenal",
+      },
+    });
+    expect(sourceRes.success).toBe(false);
+    if (!sourceRes.success) {
+      expect(sourceRes.code).toBe("INVALID_BATCH");
+      expect(sourceRes.error).toBe("Sumber tidak dikenal");
+    }
+
+    const emptyRes = repo.simulateImport("operator", { batchId: "B-196" });
+    expect(emptyRes.success).toBe(false);
+    if (!emptyRes.success) {
+      expect(emptyRes.code).toBe("INVALID_BATCH");
+      expect(emptyRes.error).toBe("Payload batch tidak valid");
+    }
+
+    // A valid batch that happens to be named B-102 must succeed
+    const validRes = repo.simulateImport("operator", {
+      batchId: "B-102",
+      evidence: {
+        id: "E-96",
+        eventId: "G-101",
+        sourceId: "SRC-INT",
+        kind: "field_report",
+        observedAt: "2026-11-17T08:00:00+07:00",
+        label: "Uji: ID batch bukan pemicu",
+      },
+    });
+    expect(validRes.success).toBe(true);
+  });
+
+  // G-DEMO-19: resolve rule applies to every event (D1)
+  it("G-DEMO-19: Resolving G-102 without field_confirmation returns EVIDENCE_REQUIRED and leaves status unchanged", () => {
+    const res = repo.reviewEvent("analis", "G-102", "resolved", "Selesai tanpa konfirmasi", [
+      "E-04",
+    ]);
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      expect(res.code).toBe("EVIDENCE_REQUIRED");
+      expect(res.error).toContain("field_confirmation");
+    }
+
+    const g102 = repo.getState().events.find((e) => e.id === "G-102");
+    expect(g102?.status).toBe("follow_up_required");
+  });
+
+  // G-DEMO-20: deterministic audit and review IDs (FIX-009)
+  it("G-DEMO-20: Audit and review IDs are counter-based, identical across fresh repos, and restart after reset", () => {
+    const runSteps = (r: GeosintRepository) => {
+      r.reviewEvent("analis", "G-101", "follow_up_required", "Minta konfirmasi lapangan", ["E-02"]);
+      r.simulateImport("operator", INITIAL_FIXTURE.demoActions.validImport);
+      r.publishBriefing("analis", "G-101", {
+        findings: "Temuan uji.",
+        limitations: "Batasan uji.",
+        nextAction: "Tindak lanjut uji.",
+      });
+    };
+
+    const other = new GeosintRepository(INITIAL_FIXTURE);
+    runSteps(repo);
+    runSteps(other);
+
+    // Three audit writers ran: review, import, publish (newest first)
+    const expectedIds = ["AUD-0003", "AUD-0002", "AUD-0001"];
+    expect(repo.getState().audits.map((a) => a.id)).toEqual(expectedIds);
+    expect(other.getState().audits.map((a) => a.id)).toEqual(expectedIds);
+    expect(repo.getState().audits).toEqual(other.getState().audits);
+
+    const g101Reviews = repo.getState().reviews.filter((r) => r.eventId === "G-101");
+    expect(g101Reviews[0].id).toBe("REV-0001");
+
+    const resetRes = repo.resetDemo("operator", true);
+    expect(resetRes.success).toBe(true);
+    const audits = repo.getState().audits;
+    expect(audits.length).toBe(1);
+    expect(audits[0].id).toBe("AUD-0001");
   });
 });

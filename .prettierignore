@@ -4,3 +4,8 @@ pnpm-lock.yaml
 dist
 build
 .git
+
+# Third-party Claude Code skills, kept byte-identical to upstream (mattpocock/skills etc.)
+.claude/skills/playwright-cli
+.claude/skills/thermo-nuclear-code-quality-review
+.claude/skills/improve-codebase-architecture

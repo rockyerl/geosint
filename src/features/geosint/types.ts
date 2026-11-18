@@ -163,15 +163,25 @@ export interface BatchLog {
   reason?: string;
 }
 
+/** Batch import payload (operator). Validated by GeosintRepository.simulateImport. */
+export interface ImportDraft {
+  batchId: string;
+  aoiId?: string;
+  evidence?: Evidence;
+}
+
+/** A demo batch that carries one evidence item. */
+export interface EvidenceImport {
+  batchId: string;
+  evidence: Evidence;
+}
+
 export interface DemoActions {
   arunaFloodOutline: Point[];
-  validImport: {
-    batchId: string;
-    evidence: Evidence;
-  };
+  validImport: EvidenceImport;
+  sagaraImport: EvidenceImport;
   invalidImport: {
     batchId: string;
-    reason: string;
     aoiId: string;
   };
 }

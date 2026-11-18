@@ -21,6 +21,10 @@ export function SourcesCatalog() {
     simulateImport(INITIAL_FIXTURE.demoActions.validImport);
   };
 
+  const handleRunSagaraImport = () => {
+    simulateImport(INITIAL_FIXTURE.demoActions.sagaraImport);
+  };
+
   const handleRunInvalidImport = () => {
     simulateImport(INITIAL_FIXTURE.demoActions.invalidImport);
   };
@@ -129,11 +133,11 @@ export function SourcesCatalog() {
         <p className="text-xs text-slate-300 mb-6 leading-relaxed">
           Gunakan tombol di bawah ini untuk mensimulasikan alur verifikasi penerimaan data
           operasional secara lokal. Sesuai spesifikasi uji penerimaan demonstrasi (G-DEMO-06),
-          sistem menguji validasi batas AOI, asosiasi bukti lapangan, deteksi duplikat, dan
-          penolakan batch yang tidak valid.
+          sistem menguji validasi referensi AOI, kejadian dan sumber, asosiasi bukti lapangan,
+          deteksi duplikat, dan penolakan batch yang tidak valid.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Action 1: Valid Import (B-101) */}
           <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between">
             <div>
@@ -165,7 +169,37 @@ export function SourcesCatalog() {
             </button>
           </div>
 
-          {/* Action 2: Invalid Import (B-102) */}
+          {/* Action 2: Sagara patrol import (B-103) */}
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-emerald-400">
+                  BATCH B-103 (VALID)
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                  Target: G-102 (Sagara)
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-white mb-1">
+                Impor Bukti E-08: Laporan Patroli Sagara
+              </h4>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                Menyisipkan laporan patroli simulasi tipe <code>field_confirmation</code> ke
+                kejadian G-102: pembakaran lahan terkendali oleh warga, bukan ancaman. Setelah itu
+                analis dapat menyelesaikan G-102.
+              </p>
+            </div>
+
+            <button
+              onClick={handleRunSagaraImport}
+              className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
+            >
+              <FileCheck className="w-4 h-4" />
+              <span>Impor laporan patroli Sagara (B-103)</span>
+            </button>
+          </div>
+
+          {/* Action 3: Invalid Import (B-102) */}
           <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-2">
