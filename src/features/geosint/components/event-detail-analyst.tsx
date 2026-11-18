@@ -71,6 +71,7 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
     multiSourceCorrelations,
     narrativeClusters,
     draftSummary,
+    missingFieldConfirmation,
   } = eventResult.data;
 
   // Initialize draft summary fields once
@@ -126,8 +127,6 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
       router.push(`/briefing/${eventId}`);
     }
   };
-
-  const hasFieldConfirmation = evidence.some((ev: Evidence) => ev.kind === "field_confirmation");
 
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 max-w-7xl w-full mx-auto font-sans">
@@ -279,19 +278,19 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
               })}
             </div>
 
-            {/* Special Guidance if G-101 and no field confirmation yet */}
-            {event.id === "G-101" && !hasFieldConfirmation && (
+            {/* Guidance while the event cannot be resolved yet (resolve rule, FIX-010) */}
+            {missingFieldConfirmation && (
               <div className="mt-4 p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-lg text-xs text-amber-200">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <strong className="text-amber-300 block mb-1">
-                      Petunjuk Penyelesaian Kasus Aruna:
+                      Petunjuk Penyelesaian Kejadian:
                     </strong>
-                    Status genangan Sektor Aruna memerlukan bukti tipe{" "}
-                    <code>field_confirmation</code> (E-06) sebelum dapat diselesaikan (resolved).
-                    Silakan buka menu <strong>Katalog & Impor</strong> (sebagai Operator) untuk
-                    mengimpor batch laporan konfirmasi petugas.
+                    Kejadian {event.id} memerlukan bukti tipe <code>field_confirmation</code>{" "}
+                    sebelum dapat diselesaikan (resolved). Bila laporan konfirmasi lapangan
+                    tersedia, buka menu <strong>Katalog &amp; Impor</strong> (sebagai Operator)
+                    untuk mengimpornya.
                   </div>
                 </div>
               </div>

@@ -106,6 +106,11 @@ export function getCorrelations(eventId: string, state: DemoState): Evidence[] {
   });
 }
 
+/** Resolve rule (FIX-010): an event can be resolved only with a linked field_confirmation. */
+export function hasFieldConfirmation(evidence: Evidence[]): boolean {
+  return evidence.some((ev) => ev.kind === "field_confirmation");
+}
+
 export function generateDraftSummary(
   event: GeoEvent,
   evidenceList: Evidence[],
@@ -147,6 +152,10 @@ export function generateDraftSummary(
 // Pure Repository Implementation
 // ---------------------------------------------------------------------------
 
+type ImportValidation =
+  | { ok: true; evidence: Evidence; event: GeoEvent; source: Source }
+  | { ok: false; reason: string };
+
 export class GeosintRepository {
   private state: DemoState;
 
@@ -173,9 +182,7 @@ export class GeosintRepository {
   }
 
   /** Validates references in an import batch (FIX-006). Order matters: area, payload, event, source. */
-  private validateImportDraft(
-    draft: ImportDraft
-  ): { ok: true; evidence: Evidence } | { ok: false; reason: string } {
+  private validateImportDraft(draft: ImportDraft): ImportValidation {
     if (draft.aoiId !== undefined && !this.state.areas.some((a) => a.id === draft.aoiId)) {
       return { ok: false, reason: "AOI tidak dikenal" };
     }
@@ -183,13 +190,34 @@ export class GeosintRepository {
     if (!evidence) {
       return { ok: false, reason: "Payload batch tidak valid" };
     }
-    if (!this.state.events.some((e) => e.id === evidence.eventId)) {
+    const event = this.state.events.find((e) => e.id === evidence.eventId);
+    if (!event) {
       return { ok: false, reason: "Kejadian tidak dikenal" };
     }
-    if (!this.state.sources.some((s) => s.id === evidence.sourceId)) {
+    const source = this.state.sources.find((s) => s.id === evidence.sourceId);
+    if (!source) {
       return { ok: false, reason: "Sumber tidak dikenal" };
     }
-    return { ok: true, evidence };
+    return { ok: true, evidence, event, source };
+  }
+
+  /** Writes one import outcome: batch log, audit entry, then advances the demo clock 1 minute. */
+  private logImportOutcome(
+    log: Omit<BatchLog, "timestamp">,
+    details: string,
+    success: boolean
+  ): void {
+    this.state.batchLogs.unshift({ ...log, timestamp: this.state.demoNow });
+    this.recordAudit({
+      timestamp: this.state.demoNow,
+      actorId: "operator-01",
+      role: "operator",
+      action: "import_batch",
+      targetId: log.batchId,
+      details,
+      success,
+    });
+    this.advanceClock(1);
   }
 
   public listEvents(
@@ -355,6 +383,7 @@ export class GeosintRepository {
       (n) => n.targetAoiId === event.aoiId
     );
     const draftSummary = generateDraftSummary(event, evidence, area);
+    const missingFieldConfirmation = event.status !== "resolved" && !hasFieldConfirmation(evidence);
 
     return {
       success: true,
@@ -372,6 +401,7 @@ export class GeosintRepository {
         multiSourceCorrelations: multiCorrs,
         narrativeClusters: narratives,
         draftSummary,
+        missingFieldConfirmation,
       },
     };
   }
@@ -712,9 +742,8 @@ export class GeosintRepository {
 
     // Rule (FIX-010): resolving any event requires linked field_confirmation evidence
     if (targetStatus === "resolved") {
-      const activeEv = this.state.evidence.filter((ev) => event.evidenceIds.includes(ev.id));
-      const hasFieldConf = activeEv.some((ev) => ev.kind === "field_confirmation");
-      if (!hasFieldConf) {
+      const linked = this.state.evidence.filter((ev) => event.evidenceIds.includes(ev.id));
+      if (!hasFieldConfirmation(linked)) {
         return {
           success: false,
           code: "EVIDENCE_REQUIRED",
@@ -786,29 +815,23 @@ export class GeosintRepository {
       };
     }
 
-    // FR-001 FIX-006: reject on unknown references, never on a hard-coded batch ID.
+    // FIX-006: reject on unknown references, never on a hard-coded batch ID.
     const validation = this.validateImportDraft(draft);
     if (!validation.ok) {
-      this.state.batchLogs.unshift({
-        batchId: draft.batchId,
-        timestamp: this.state.demoNow,
-        status: "failed",
-        itemCount: 1,
-        acceptedCount: 0,
-        duplicateCount: 0,
-        failedCount: 1,
-        reason: validation.reason,
-      });
-      this.recordAudit({
-        timestamp: this.state.demoNow,
-        actorId: "operator-01",
-        role: "operator",
-        action: "import_batch",
-        targetId: draft.batchId,
-        details: `Batch ${draft.batchId} gagal: ${validation.reason}`,
-        success: false,
-      });
-      this.advanceClock(1);
+      const itemCount = draft.evidence ? 1 : 0;
+      this.logImportOutcome(
+        {
+          batchId: draft.batchId,
+          status: "failed",
+          itemCount,
+          acceptedCount: 0,
+          duplicateCount: 0,
+          failedCount: itemCount,
+          reason: validation.reason,
+        },
+        `Batch ${draft.batchId} gagal: ${validation.reason}`,
+        false
+      );
       return {
         success: false,
         code: "INVALID_BATCH",
@@ -817,35 +840,25 @@ export class GeosintRepository {
       };
     }
 
-    const ev = validation.evidence;
+    const { evidence: ev, event, source } = validation;
     const alreadyProcessed =
       this.state.processedBatchIds.includes(draft.batchId) ||
       this.state.evidence.some((e) => e.id === ev.id);
 
     if (alreadyProcessed) {
-      const batchLog: BatchLog = {
-        batchId: draft.batchId,
-        timestamp: this.state.demoNow,
-        status: "duplicate",
-        itemCount: 1,
-        acceptedCount: 0,
-        duplicateCount: 1,
-        failedCount: 0,
-        reason: "Batch duplikat terdeteksi",
-      };
-      this.state.batchLogs.unshift(batchLog);
-
-      this.recordAudit({
-        timestamp: this.state.demoNow,
-        actorId: "operator-01",
-        role: "operator",
-        action: "import_batch",
-        targetId: draft.batchId,
-        details: `Batch ${draft.batchId} duplikat: Bukti ${ev.id} sudah ada dalam sistem`,
-        success: true,
-      });
-
-      this.advanceClock(1);
+      this.logImportOutcome(
+        {
+          batchId: draft.batchId,
+          status: "duplicate",
+          itemCount: 1,
+          acceptedCount: 0,
+          duplicateCount: 1,
+          failedCount: 0,
+          reason: "Batch duplikat terdeteksi",
+        },
+        `Batch ${draft.batchId} duplikat: Bukti ${ev.id} sudah ada dalam sistem`,
+        true
+      );
 
       return {
         success: true,
@@ -856,45 +869,26 @@ export class GeosintRepository {
       };
     }
 
-    // Add evidence to state
+    // Accept: add evidence, link it to its event (status unchanged), refresh the source
     this.state.evidence.push(ev);
-
-    // Link to target event without altering event status
-    const event = this.state.events.find((e) => e.id === ev.eventId);
-    if (event && !event.evidenceIds.includes(ev.id)) {
+    if (!event.evidenceIds.includes(ev.id)) {
       event.evidenceIds.push(ev.id);
     }
-
-    // Update source freshness for SRC-INT
-    const srcIndex = this.state.sources.findIndex((s) => s.id === ev.sourceId);
-    if (srcIndex !== -1) {
-      this.state.sources[srcIndex].lastSuccessfulImportAt = this.state.demoNow;
-    }
-
+    source.lastSuccessfulImportAt = this.state.demoNow;
     this.state.processedBatchIds.push(draft.batchId);
 
-    const batchLog: BatchLog = {
-      batchId: draft.batchId,
-      timestamp: this.state.demoNow,
-      status: "success",
-      itemCount: 1,
-      acceptedCount: 1,
-      duplicateCount: 0,
-      failedCount: 0,
-    };
-    this.state.batchLogs.unshift(batchLog);
-
-    this.recordAudit({
-      timestamp: this.state.demoNow,
-      actorId: "operator-01",
-      role: "operator",
-      action: "import_batch",
-      targetId: draft.batchId,
-      details: `Batch ${draft.batchId} berhasil diimpor: ${ev.label} (${ev.id}) dikaitkan ke ${ev.eventId}`,
-      success: true,
-    });
-
-    this.advanceClock(1);
+    this.logImportOutcome(
+      {
+        batchId: draft.batchId,
+        status: "success",
+        itemCount: 1,
+        acceptedCount: 1,
+        duplicateCount: 0,
+        failedCount: 0,
+      },
+      `Batch ${draft.batchId} berhasil diimpor: ${ev.label} (${ev.id}) dikaitkan ke ${ev.eventId}`,
+      true
+    );
 
     return {
       success: true,

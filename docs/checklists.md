@@ -81,3 +81,4 @@ New fixes (in scope):
 - [ ] Real batch validation; no hard-coded `B-102` (spec 001 FIX-006) — built 2026-11-19, not verified
 - [ ] A screen uses the computed correlation (`/narasi`, spec 002 FR-212); event detail stops showing hand-typed NAR/CORR data
 - [ ] Deterministic audit IDs (spec 001 FIX-009, low priority) — built 2026-11-19, not verified
+- [x] Briefing page opens the newest version, not v1 (`briefing-view.tsx`; spec 001 T014) — fixed 2026-11-19, checked in the browser

@@ -100,3 +100,9 @@ Built, not verified. Decisions taken by the developer:
 - **FIX-009 scope:** review IDs (`REV-0001`, …) also come from a state counter, and every audit writer
   (review, import, publish, reset) uses one helper (`AUD-0001`, …; reset restarts at `AUD-0001`). Test G-DEMO-20.
 - `fixtureVersion` stays 2: only `demoActions` changed and the UI reads it directly.
+
+## 10. Update 2026-11-19 (b) — review clean-up
+
+- The analyst hint is generic and driven by the projection flag `missingFieldConfirmation`.
+- The batch-log counts come from the payload (an empty batch logs `itemCount` 0).
+- The import outcome (batch log, audit, clock) is written in one place.

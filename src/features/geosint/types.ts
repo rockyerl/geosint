@@ -180,10 +180,7 @@ export interface DemoActions {
   arunaFloodOutline: Point[];
   validImport: EvidenceImport;
   sagaraImport: EvidenceImport;
-  invalidImport: {
-    batchId: string;
-    aoiId: string;
-  };
+  invalidImport: ImportDraft;
 }
 
 export interface NarrativeTrendPoint {
@@ -326,4 +323,6 @@ export interface AnalystEventDetail {
   multiSourceCorrelations: MultiSourceCorrelation[];
   narrativeClusters: NarrativeCluster[];
   draftSummary: { findings: string; limitations: string; nextAction: string };
+  /** True while the event is unresolved and has no linked field_confirmation (resolve rule, FIX-010). */
+  missingFieldConfirmation: boolean;
 }

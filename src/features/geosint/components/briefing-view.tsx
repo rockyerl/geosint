@@ -18,12 +18,12 @@ export function BriefingView({ eventId }: BriefingViewProps) {
     .filter((b) => b.eventId === eventId)
     .sort((a, b) => b.version - a.version);
 
-  const [selectedVersion, setSelectedVersion] = useState<number>(
-    eventBriefings.length > 0 ? eventBriefings[0].version : 1
-  );
+  // null = no version picked yet: always show the newest. A fixed initial value would be
+  // computed before the stored state loads and stick to v1.
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
   const currentBriefing =
-    eventBriefings.find((b) => b.version === selectedVersion) || eventBriefings[0];
+    eventBriefings.find((b) => b.version === selectedVersion) ?? eventBriefings[0];
 
   const isStale =
     event &&
@@ -74,7 +74,7 @@ export function BriefingView({ eventId }: BriefingViewProps) {
               <History className="w-3.5 h-3.5 text-slate-400" />
               <span className="text-slate-400">Arsip Versi:</span>
               <select
-                value={selectedVersion}
+                value={currentBriefing?.version}
                 onChange={(e) => setSelectedVersion(Number(e.target.value))}
                 className="bg-transparent text-indigo-400 font-bold focus:outline-none"
               >

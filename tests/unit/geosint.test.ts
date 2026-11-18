@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { GeosintRepository, getSourceFreshness } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 
-describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
+describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-21)", () => {
   let repo: GeosintRepository;
 
   beforeEach(() => {
@@ -547,6 +547,8 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
       expect(aoiRes.code).toBe("INVALID_BATCH");
       expect(aoiRes.error).toBe("AOI tidak dikenal");
     }
+    // N2: item counts derive from the payload (no evidence item in this batch)
+    expect(repo.getState().batchLogs[0].itemCount).toBe(0);
 
     const sourceRes = repo.simulateImport("operator", {
       batchId: "B-197",
@@ -564,6 +566,9 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
       expect(sourceRes.code).toBe("INVALID_BATCH");
       expect(sourceRes.error).toBe("Sumber tidak dikenal");
     }
+    // N2: one evidence item in the payload, and it failed
+    expect(repo.getState().batchLogs[0].itemCount).toBe(1);
+    expect(repo.getState().batchLogs[0].failedCount).toBe(1);
 
     const emptyRes = repo.simulateImport("operator", { batchId: "B-196" });
     expect(emptyRes.success).toBe(false);
@@ -571,6 +576,9 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
       expect(emptyRes.code).toBe("INVALID_BATCH");
       expect(emptyRes.error).toBe("Payload batch tidak valid");
     }
+    // N2: an empty batch has nothing to count or fail
+    expect(repo.getState().batchLogs[0].itemCount).toBe(0);
+    expect(repo.getState().batchLogs[0].failedCount).toBe(0);
 
     // A valid batch that happens to be named B-102 must succeed
     const validRes = repo.simulateImport("operator", {
@@ -632,5 +640,52 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-20)", () => {
     const audits = repo.getState().audits;
     expect(audits.length).toBe(1);
     expect(audits[0].id).toBe("AUD-0001");
+  });
+
+  // G-DEMO-21: resolve-hint flag is generic, driven by the analis projection (N1)
+  it("G-DEMO-21: Analis projection flags missingFieldConfirmation until a field_confirmation is linked; pimpinan projection omits it", () => {
+    const flagOf = (eventId: string): boolean | undefined => {
+      const res = repo.getEvent("analis", eventId);
+      return res.success && res.role === "analis" ? res.data.missingFieldConfirmation : undefined;
+    };
+
+    // Seed: G-102 is unresolved and has no field_confirmation evidence
+    expect(flagOf("G-102")).toBe(true);
+
+    // pimpinan projection never carries the flag
+    const pimpinanView = repo.getEvent("pimpinan", "G-102");
+    expect(pimpinanView.success).toBe(true);
+    expect(pimpinanView.success && pimpinanView.role).toBe("pimpinan");
+    if (pimpinanView.success && pimpinanView.role === "pimpinan") {
+      expect("missingFieldConfirmation" in pimpinanView.data).toBe(false);
+    }
+
+    // DS-3: B-103 links E-08 (field_confirmation) to G-102
+    repo.simulateImport("operator", INITIAL_FIXTURE.demoActions.sagaraImport);
+    expect(flagOf("G-102")).toBe(false);
+
+    // DS-1: G-101 is flagged until B-101 is imported, and stays false once resolved
+    expect(flagOf("G-101")).toBe(true);
+    const followUp = repo.reviewEvent(
+      "analis",
+      "G-101",
+      "follow_up_required",
+      "Minta konfirmasi lapangan",
+      ["E-02"]
+    );
+    expect(followUp.success).toBe(true);
+    repo.simulateImport("operator", INITIAL_FIXTURE.demoActions.validImport);
+    const resolve = repo.reviewEvent(
+      "analis",
+      "G-101",
+      "resolved",
+      "Petugas mengonfirmasi genangan.",
+      ["E-02", "E-06"]
+    );
+    expect(resolve.success).toBe(true);
+    if (resolve.success) {
+      expect(resolve.event.status).toBe("resolved");
+    }
+    expect(flagOf("G-101")).toBe(false);
   });
 });

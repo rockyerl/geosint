@@ -39,6 +39,11 @@ Window preset P48 = `2026-11-15T09:00+07:00` → `2026-11-17T09:00+07:00`.
 - G-DEMO-16: the analyst draft and the published briefing findings also contain "bukan ancaman" (D2).
 - G-DEMO-18: also covers the empty payload ("Payload batch tidak valid") and a valid batch named `B-102` (succeeds, so the batch ID is not a trigger).
 
+### Update 2026-11-19 (b)
+
+- G-DEMO-21 (seed, N1): the analis `getEvent` projection exposes `missingFieldConfirmation`. G-102 is `true` from the seed and `false` after `sagaraImport`. G-101 is `false` after the full DS-1 resolve. The pimpinan projection of G-102 has no `missingFieldConfirmation` key.
+- G-DEMO-18 also asserts `itemCount` / `failedCount` derived from the payload (0 for an empty batch).
+
 ## Not covered by automated tests (manual)
 
 | ID    | Check                                                                                                  |

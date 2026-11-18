@@ -188,3 +188,22 @@ Status: **built, not verified** (developer's `pnpm check` pending).
 - Audit and review IDs are deterministic (`AUD-0001`, `REV-0001`).
 - The resolve rule (needs `field_confirmation`) is generic for every event (FIX-010).
 - Known leftover: `event-detail-pimpinan.tsx:183` still shows the hard-coded "4 akun unik < 10 batas RAB" text for Sagara (spec 002 / ADR-006).
+
+## 11. Update 2026-11-19 — §4.1 verdicts after spec 001 fixes
+
+Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 55f09d5; this change needs its own `pnpm check`.
+
+- G-DEMO-06: Correct. Real validation (FIX-006); "AOI tidak dikenal".
+- G-DEMO-08: Correct. Title says it is a projection, not access control (FIX-003).
+- G-DEMO-14: Retired. Replaced by spec 002 NAC-03 / NAC-04.
+- G-DEMO-15: Correct. Says "v1 retained" (FIX-002).
+- Describe label: Correct. Says "G-DEMO-01 s/d G-DEMO-21".
+- G-DEMO-16..21: New, Correct. DS-3 ending, batch validation, generic resolve rule, deterministic IDs, resolve-hint flag.
+- All other rows are unchanged from §4.1.
+- Review clean-up (S1, S2, N1, N2, S3) built, not verified: one import-outcome writer, the validator returns the event and source, the analyst hint uses `missingFieldConfirmation`, failed-batch counts come from the payload.
+
+## 12. Update 2026-11-19 — storyline walk (spec 001 T006)
+
+- DS-1 (dashboard → compare → review → refused resolve → B-102/B-101 → resolve → briefing v1/v2 → pimpinan → reset) and DS-3 were walked offline in the browser with `playwright-cli`. All steps pass.
+- Found and fixed: the briefing page showed v1 even when v2 was the newest version, because the selected version was set before the stored state loaded (`briefing-view.tsx`, spec 001 T014).
+- Leadership projection checked: no internal notes, no draft, no resolve hint.
