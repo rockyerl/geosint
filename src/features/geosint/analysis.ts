@@ -1,5 +1,6 @@
 import type {
   AccountProfile,
+  AccountStop,
   ActorLink,
   ComputedCluster,
   CorrelationTrendBucket,
@@ -118,6 +119,13 @@ export function computeConcentration(
     );
 }
 
+/** Sorted ids of events in one area, observed in the window. */
+function eventIdsInArea(events: GeoEvent[], aoiId: string, window: TimeWindow): string[] {
+  return sortedUnique(
+    events.filter((e) => e.aoiId === aoiId && isInWindow(e.observedAt, window)).map((e) => e.id)
+  );
+}
+
 export function computeActorLinks(
   items: NarrativeItem[],
   events: GeoEvent[],
@@ -135,11 +143,7 @@ export function computeActorLinks(
       const aoiIds = sortedUnique(
         ordered.flatMap((i) => (i.mentionedAoiId ? [i.mentionedAoiId] : []))
       );
-      const eventIds = sortedUnique(
-        events
-          .filter((e) => aoiIds.includes(e.aoiId) && isInWindow(e.observedAt, window))
-          .map((e) => e.id)
-      );
+      const eventIds = sortedUnique(aoiIds.flatMap((a) => eventIdsInArea(events, a, window)));
       return {
         account,
         itemIds: ordered.map((i) => i.id),
@@ -160,7 +164,37 @@ export function computeAccountProfile(
   const link = computeActorLinks(items, events, window).find((a) => a.account === account);
   if (!link) return null;
   const own = items.filter((i) => link.itemIds.includes(i.id)).sort(compareByTime);
-  return { ...link, items: own };
+  return { ...link, items: own, stops: computeAccountStops(own, events, window) };
+}
+
+/**
+ * Movement of one account (spec 002 FR-214): each run of consecutive posts that mention the same
+ * area is one stop; a later return to an area is a new stop. Posts without a mentioned area are
+ * skipped and do not split a run. `ordered` must already be in time order.
+ */
+export function computeAccountStops(
+  ordered: NarrativeItem[],
+  events: GeoEvent[],
+  window: TimeWindow
+): AccountStop[] {
+  const stops: AccountStop[] = [];
+  for (const item of ordered) {
+    if (!item.mentionedAoiId) continue;
+    const last = stops[stops.length - 1];
+    if (last && last.aoiId === item.mentionedAoiId) {
+      last.itemIds.push(item.id);
+      last.lastPostAt = item.publishedAt;
+    } else {
+      stops.push({
+        aoiId: item.mentionedAoiId,
+        firstPostAt: item.publishedAt,
+        lastPostAt: item.publishedAt,
+        itemIds: [item.id],
+        eventIds: eventIdsInArea(events, item.mentionedAoiId, window),
+      });
+    }
+  }
+  return stops;
 }
 
 /** Builds the screen view of each theme from the computed cluster of its topic + area (no typed numbers). */

@@ -5,6 +5,7 @@ import { GeosintRepository } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 import {
   buildNarrativeClusterViews,
+  computeAccountStops,
   computeActorLinks,
   computeConcentration,
   computeNarrativeClusters,
@@ -13,7 +14,7 @@ import type { GeoEvent, NarrativeItem, TimeWindow } from "@/features/geosint/typ
 
 const P48: TimeWindow = INITIAL_FIXTURE.demoPreset.window;
 
-describe("Spec 002 narrative / actor correlation (NAC-01..12, 15..18)", () => {
+describe("Spec 002 narrative / actor correlation (NAC-01..13, 15..18)", () => {
   let repo: GeosintRepository;
 
   beforeEach(() => {
@@ -185,6 +186,36 @@ describe("Spec 002 narrative / actor correlation (NAC-01..12, 15..18)", () => {
     expect(res.profile.eventIds).toContain("G-101");
   });
 
+  it("NAC-13: @radar_lintas moves Sagara 09:40 -> Nila 18:00-20:00 -> Aruna 21:30 with linked events", () => {
+    const res = repo.getAccountProfile("analis", "@radar_lintas", P48);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.profile.stops).toEqual([
+      {
+        aoiId: "AOI-02",
+        firstPostAt: "2026-11-16T09:40:00+07:00",
+        lastPostAt: "2026-11-16T09:40:00+07:00",
+        itemIds: ["N-205"],
+        eventIds: ["G-102"],
+      },
+      {
+        aoiId: "AOI-03",
+        firstPostAt: "2026-11-16T18:00:00+07:00",
+        lastPostAt: "2026-11-16T20:00:00+07:00",
+        itemIds: ["NL-01", "NL-04", "NL-06"],
+        eventIds: ["G-103"],
+      },
+      {
+        aoiId: "AOI-01",
+        firstPostAt: "2026-11-16T21:30:00+07:00",
+        lastPostAt: "2026-11-16T21:30:00+07:00",
+        itemIds: ["NC-05"],
+        eventIds: ["G-101"],
+      },
+    ]);
+    expect(res.profile.stops.flatMap((s) => s.eventIds)).toEqual(["G-102", "G-103", "G-101"]);
+  });
+
   it("NAC-09: getActorLinks and getAccountProfile return FORBIDDEN for pimpinan and operator", () => {
     for (const role of ["pimpinan", "operator"] as const) {
       const links = repo.getActorLinks(role, P48);
@@ -299,6 +330,28 @@ describe("Spec 002 narrative / actor correlation (NAC-01..12, 15..18)", () => {
 
     const reversed = computeNarrativeClusters([...items].reverse(), W);
     expect(reversed).toEqual(clusters);
+  });
+
+  it("NAC-13: stops split on area change, skip unlocated posts, link only in-window events", () => {
+    const items = [
+      item("S-01", "TOP-X", "AOI-X", "@a_akun", "2026-11-17T01:00:00Z"),
+      item("S-02", "TOP-X", "AOI-X", "@a_akun", "2026-11-17T02:00:00Z"),
+      item("S-03", "TOP-X", null, "@a_akun", "2026-11-17T03:00:00Z"), // skipped
+      item("S-04", "TOP-X", "AOI-Y", "@a_akun", "2026-11-17T04:00:00Z"),
+      item("S-05", "TOP-X", "AOI-X", "@a_akun", "2026-11-17T05:00:00Z"), // return visit
+    ];
+    const events = [
+      event("EV-X1", "AOI-X"),
+      event("EV-X9", "AOI-X", OUT), // outside the window
+      event("EV-Y1", "AOI-Y"),
+    ];
+    const stops = computeAccountStops(items, events, W);
+
+    expect(stops.map((s) => s.aoiId)).toEqual(["AOI-X", "AOI-Y", "AOI-X"]);
+    expect(stops.map((s) => s.itemIds)).toEqual([["S-01", "S-02"], ["S-04"], ["S-05"]]);
+    expect(stops[0].firstPostAt).toBe("2026-11-17T01:00:00Z");
+    expect(stops[0].lastPostAt).toBe("2026-11-17T02:00:00Z");
+    expect(stops.map((s) => s.eventIds)).toEqual([["EV-X1"], ["EV-Y1"], ["EV-X1"]]);
   });
 
   it("NAC-17: account profile for an unknown account returns NOT_FOUND", () => {

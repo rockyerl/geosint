@@ -57,3 +57,7 @@ Changes to rows above (rows kept as written; these notes win):
 
 - Now written on the v3 seed: NAC-01 (full), NAC-04, NAC-06 (full), NAC-07, NAC-11, NAC-12.
 - NAC-18 (adapter): `buildNarrativeClusterViews` gives NAR-01 10 posts / 10 accounts / [2, 8] and NAR-02 6 / 4, all equal to the computed clusters; a theme without items is omitted.
+
+### Update 2026-11-19 (c) — movement stops (T216)
+
+- NAC-13 written: `profile.stops` for `@radar_lintas` on the v3 seed (AOI-02 N-205 → AOI-03 NL-01/04/06 → AOI-01 NC-05, events G-102, G-103, G-101), plus an inline `computeAccountStops` test (a return visit is a new stop, posts without an area are skipped, out-of-window events are not linked).

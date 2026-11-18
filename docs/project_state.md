@@ -219,3 +219,8 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 - Fixture v3 is in (built, not verified), and old saved state self-heals.
 - Narrative numbers on screens are now computed (adapter); only the UI's own `>= 10` labels and the pimpinan hard-coded strings remain (T209–T212).
 - CORR-01/02 `status`, `hasSufficientGeoData` and rationale stay hand-typed until T218 (CORR-01 says geo data sufficient while the computed NAR-01 coverage is 0; CORR-02 says G-102 has no field report, which is false after B-103).
+
+## 15. Update 2026-11-19 — account movement stops
+
+- `getAccountProfile` now returns computed `stops` in time order (area, first/last post time, posts, events in that area in the window). For example, `@radar_lintas` goes Sagara → Nila → Aruna. Built, not verified.
+- The timeline UI for these stops comes with the `/narasi` route (T217).

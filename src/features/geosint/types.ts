@@ -254,9 +254,19 @@ export interface ActorLink {
   isCrossEvent: boolean; // >= 2 areas or >= 2 events
 }
 
-/** Timeline of one account (spec 002 FR-206). */
+/** One stay of an account in an area: consecutive posts mentioning the same area (spec 002 FR-214). */
+export interface AccountStop {
+  aoiId: string;
+  firstPostAt: string;
+  lastPostAt: string;
+  itemIds: string[]; // time order
+  eventIds: string[]; // sorted; events in this area, observed in the window
+}
+
+/** Timeline of one account (spec 002 FR-206, FR-214). */
 export interface AccountProfile extends ActorLink {
   items: NarrativeItem[]; // time order
+  stops: AccountStop[]; // time order
 }
 
 export interface CorrelationWorkspaceData {
