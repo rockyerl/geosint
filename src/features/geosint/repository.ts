@@ -37,6 +37,7 @@ import {
   clusterId,
   computeAccountProfile,
   computeActorLinks,
+  computeBriefingNarrativeTotals,
   computeEventCorrelation,
   computeEventCorrelations,
   computeNarrativeClusters,
@@ -988,7 +989,6 @@ export class GeosintRepository {
       nextAction: string;
       aoiId?: string;
       window?: TimeWindow;
-      narrativeItemIds?: string[];
       topicId?: string;
     }
   ):
@@ -1033,8 +1033,13 @@ export class GeosintRepository {
       evidenceIds: [...event.evidenceIds],
       aoiId: bahan.aoiId || event.aoiId,
       window: bahan.window || this.state.demoPreset.window,
-      narrativeItemIds: bahan.narrativeItemIds || [],
       topicId: bahan.topicId || this.state.demoPreset.topicId,
+      narrativeTotals: computeBriefingNarrativeTotals(
+        this.eventCorrelations(event),
+        this.state.narrativeItems,
+        this.state.events,
+        this.state.demoPreset.window
+      ),
     };
 
     const newBriefing: Briefing = {

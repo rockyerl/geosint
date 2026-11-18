@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useGeosint } from "../context";
+import { formatBriefingNarrativeTotal } from "../analysis";
 import {
   ArrowLeft,
   Clock,
@@ -250,6 +251,19 @@ export function EventDetailPimpinan({ eventId }: EventDetailPimpinanProps) {
                 </p>
               </div>
             </div>
+
+            {latestApprovedBriefing.snapshot.narrativeTotals?.length ? (
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] font-mono">
+                <span className="text-slate-300 font-bold block mb-1">
+                  Narasi terbuka saat briefing disetujui (jumlah saja):
+                </span>
+                {latestApprovedBriefing.snapshot.narrativeTotals.map((t) => (
+                  <div key={t.topicId} className="text-slate-200">
+                    {formatBriefingNarrativeTotal(t, topicLabel(t.topicId))}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="p-6 bg-slate-950 rounded-lg border border-slate-800 text-center">

@@ -21,10 +21,10 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 
 ## UI
 
-- [ ] T209 Narrative panel and correlation matrix use computed clusters; remove the hide-under-10 rule; counts open their items
-- [ ] T210 Concentration ranking per topic
-- [ ] T211 "Aktor lintas kejadian" list and account timeline (analyst only)
-- [ ] T212 Briefing snapshot carries totals only (no handles) for pimpinan
+- [x] T209 Narrative panel and correlation matrix use computed clusters; remove the hide-under-10 rule; counts open their items Built 2026-11-19, not verified
+- [x] T210 Concentration ranking per topic Delivered by T217 (/narasi), closed 2026-11-19
+- [x] T211 "Aktor lintas kejadian" list and account timeline (analyst only) Delivered by T217 (/narasi), closed 2026-11-19
+- [x] T212 Briefing snapshot carries totals only (no handles) for pimpinan Built 2026-11-19, not verified
 
 ## Close
 
@@ -51,3 +51,10 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 
 - CORR-xx and `MultiSourceCorrelation` are removed. Event detail, dashboard and tactical map read `computeEventCorrelations` / `getAreaCorrelations`.
 - A field confirmation counts as field evidence, like a field report (D4); this also changes `getCorrelationWorkspace`.
+
+## Update 2026-11-19 (c)
+
+- Panel counts open their posts through `selectClusterItems`.
+- Briefing snapshots carry `narrativeTotals` (counts only).
+- `BriefingSnapshot.narrativeItemIds` / `narrativeTheme` / `correlatedSourcesCount` were removed.
+- Pimpinan event detail pillars 1–2 still use hard-coded text (follow-up, not in 002).

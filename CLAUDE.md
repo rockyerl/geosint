@@ -1,7 +1,7 @@
 # CLAUDE.md — GEOSINT PoC
 
 Guidance for Claude Code in this repository. **AGENTS.md is binding** (SUNDAWA AI-01..AI-08);
-this file adds project context and does not repeat it.
+this file adds project context and does not repeat it. Imported here so it loads in every session: @AGENTS.md
 
 ## 1. What this project is
 
@@ -98,6 +98,8 @@ Details and evidence: `docs/project_state.md`.
 
 **Update 2026-11-19 (b):** `/narasi` (analyst) shows the computed concentration map, ranked clusters, cross-event actors and account movement (T217).
 
+**Update 2026-11-19 (c):** UI threshold labels removed (T209); briefing snapshots carry narrative totals, counts only (T212).
+
 ## 6. Rules for working on the PoC
 
 1. **Logic in `repository.ts`, UI in components.** Repository methods take `role` first and
@@ -124,7 +126,7 @@ Details and evidence: `docs/project_state.md`.
 - Fixture inconsistencies: NC-01..10 have 10 distinct handles but aggregate says 3;
   `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`. **Update 2026-11-19:** counts fixed by fixture v3 (spec 002 T215/T206); CORR-xx `status` / `hasSufficientGeoData` / rationale are still hand-typed until T218. **Update 2026-11-19 (c):** CORR-xx removed; correlation computed (T218).
 - `repository.ts:512-522` and `types.ts:192` apply a misread "RAB 10 akun" threshold (ADR-006).
-  Spec 002 removes it. **Update 2026-11-19:** removed from repository and types (spec 002 T203); UI labels remain until T209–T212.
+  Spec 002 removes it. **Update 2026-11-19:** removed from repository and types (spec 002 T203); UI labels remain until T209–T212. **Update 2026-11-19 (c):** UI labels removed (T209).
 - `tests/unit/geosint.test.ts` describe label says "01 s/d 10" (there are 15);
   G-DEMO-15 claims "v1 archived" but no archive exists.
 - Topic `TOP-02` is used by `NAR-02` / `N-201` but not defined. The Sagara demo scenario
@@ -144,7 +146,7 @@ the code wins: record the finding in `docs/scenario_review.md` (§H lists pendin
 | --------------------------------------------- | ----------------------------------------------------------------------------- |
 | `CLAUDE.md`                                   | This guide                                                                    |
 | `docs/project_state.md`                       | Status per PoC capability, risks, decisions log                               |
-| `docs/scenarios.md`                           | **The 5 demo scenarios DS-1..DS-5**: steps, expected results, data, run order |
+| `docs/scenarios.md`                           | **The 5 demo scenarios DS-1..DS-5**: steps, expected results, data, run order **Update 2026-11-19:** presenter run book in `docs/demo_manual.md`. |
 | `docs/scenario_review.md`                     | Verdict for every scenario (✅⚠️❌), missing scenarios, proposed demo set     |
 | `docs/checklists.md`                          | PoC done criteria, fix list, cleanup backlog                                  |
 | `docs/questions.md`                           | Decided context answers (Q1–Q20) + open items; check before assuming          |
@@ -165,7 +167,7 @@ a note at the end of the affected line, or a new "Update <date>" section. The ne
 
 | Doc                                        | Note                                                     |
 | ------------------------------------------ | -------------------------------------------------------- |
-| `AGENTS.md`                                | **Binding rules**; never edit                            |
+| `AGENTS.md`                                | **Binding rules**; never edit. **Update 2026-11-19:** §6 (pointer to this file) added at the developer's request; keep it in step with this file. |
 | `README.md`                                | Template README; sidebar claims wrong                    |
 | `docs/PROJECT_PROFILE.md`                  | Template profile; NFRs unmeasured                        |
 | `docs/architecture/` (incl. `adr/ADR-001`) | Template architecture; ADR-001 still valid for auth/RBAC |

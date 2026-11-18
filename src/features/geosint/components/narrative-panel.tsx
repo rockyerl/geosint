@@ -1,17 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { NarrativeCluster } from "../types";
-import {
-  MessageSquare,
-  TrendingUp,
-  MapPin,
-  Tag,
-  Radio,
-  Users,
-  AlertCircle,
-  CheckCircle2,
-} from "lucide-react";
+import { NarrativeCluster, NarrativeItemFilter } from "../types";
+import { selectClusterItems } from "../analysis";
+import { MessageSquare, TrendingUp, MapPin, Tag, Radio, Users } from "lucide-react";
 
 interface NarrativePanelProps {
   clusters: NarrativeCluster[];
@@ -30,8 +22,11 @@ export function NarrativePanel({
 
   const activeCluster = clusters.find((c) => c.id === activeId) || clusters[0];
 
+  const [filter, setFilter] = useState<NarrativeItemFilter>({ kind: "all" });
+
   const handleSelect = (id: string) => {
     setActiveId(id);
+    setFilter({ kind: "all" });
     if (onSelectCluster) onSelectCluster(id);
   };
 
@@ -43,8 +38,13 @@ export function NarrativePanel({
     );
   }
 
-  // Account threshold check (RAB spec: minimum 10 accounts)
-  const meetsAccountThreshold = activeCluster.uniqueAccountsCount >= 10;
+  const visibleItems = selectClusterItems(activeCluster, filter);
+  const filterLabel =
+    filter.kind === "all"
+      ? "semua"
+      : filter.kind === "bucket"
+        ? (activeCluster.volumeTrend[filter.index]?.time ?? "—")
+        : filter.account;
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl">
@@ -107,10 +107,14 @@ export function NarrativePanel({
             <span className="text-[10px] font-mono text-slate-400 block uppercase">
               VOLUME KONTEN:
             </span>
-            <span className="text-2xl font-black text-indigo-400 font-mono">
+            <button
+              type="button"
+              onClick={() => setFilter({ kind: "all" })}
+              className="text-2xl font-black text-indigo-400 font-mono hover:underline"
+            >
               {activeCluster.totalContent}{" "}
               <span className="text-xs font-normal text-slate-400">Post / Berita</span>
-            </span>
+            </button>
           </div>
         </div>
 
@@ -126,7 +130,16 @@ export function NarrativePanel({
 
           <div className="grid grid-cols-4 gap-2 text-center font-mono">
             {activeCluster.volumeTrend.map((point, idx) => (
-              <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800">
+              <button
+                type="button"
+                key={idx}
+                onClick={() => setFilter({ kind: "bucket", index: idx })}
+                className={`bg-slate-900 p-2 rounded-lg border hover:underline ${
+                  filter.kind === "bucket" && filter.index === idx
+                    ? "border-indigo-500 ring-1 ring-indigo-500"
+                    : "border-slate-800"
+                }`}
+              >
                 <div className="text-[10px] text-slate-400 mb-1">{point.time}</div>
                 <div className="text-base font-black text-indigo-400">{point.count}</div>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
@@ -135,42 +148,41 @@ export function NarrativePanel({
                     style={{ width: `${Math.min(100, point.count * 11)}%` }}
                   ></div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Conditional Account Aggregation Widget (RAB Threshold: min 10 accounts) */}
-        <div className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+        {/* Account widget: every count opens its posts (FR-211); no account threshold (ADR-006) */}
+        <div className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 text-xs font-mono">
           <div className="flex items-center gap-2.5">
             <Users className="w-4 h-4 text-indigo-400" />
-            <div>
-              <span className="text-slate-300 font-bold">Agregat Akun Unik per Wilayah: </span>
-              {meetsAccountThreshold ? (
-                <strong className="text-white">{activeCluster.uniqueAccountsCount} Akun</strong>
-              ) : (
-                <span className="text-amber-300 font-bold">
-                  Status Cakupan: Di Bawah Ambang Batas (Angka Disembunyikan Sesuai Standar RAB)
-                </span>
-              )}
-              <span className="text-[10px] text-slate-400 ml-1.5">
-                (Ambang Batas RAB: $\ge$ 10 Akun)
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setFilter({ kind: "all" })}
+              className="text-slate-300 hover:underline"
+            >
+              Akun unik: <strong className="text-white">{activeCluster.uniqueAccountsCount}</strong>
+            </button>
           </div>
-
-          <div>
-            {meetsAccountThreshold ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/50 text-[10px] font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                AMBANG TERPENUHI (DATA VALID)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-500/50 text-[10px] font-bold">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                STATUS: CAKUPAN TERBATAS (&lt; 10 AKUN)
-              </span>
-            )}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {activeCluster.accounts.map((a) => {
+              const isChipActive = filter.kind === "account" && filter.account === a.account;
+              return (
+                <button
+                  type="button"
+                  key={a.account}
+                  onClick={() => setFilter({ kind: "account", account: a.account })}
+                  className={`px-2 py-0.5 rounded border text-[10px] hover:underline ${
+                    isChipActive
+                      ? "border-indigo-500 bg-indigo-950 text-white"
+                      : "border-slate-700 bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  {a.account} ({a.itemIds.length})
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -195,11 +207,23 @@ export function NarrativePanel({
 
       {/* Narrative Items Sample Feed */}
       <div className="space-y-3">
-        <span className="text-[11px] font-mono text-slate-400 font-bold uppercase block">
-          Sampel Bukti Konten Terbuka ({activeCluster.items.length}):
-        </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px] font-mono text-slate-400 font-bold uppercase block">
+            Konten ditampilkan ({visibleItems.length} dari {activeCluster.totalContent}):{" "}
+            {filterLabel}
+          </span>
+          {filter.kind !== "all" && (
+            <button
+              type="button"
+              onClick={() => setFilter({ kind: "all" })}
+              className="text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              Tampilkan semua
+            </button>
+          )}
+        </div>
 
-        {activeCluster.items.map((item) => (
+        {visibleItems.map((item) => (
           <div
             key={item.id}
             className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 hover:border-slate-700 transition-all text-xs"

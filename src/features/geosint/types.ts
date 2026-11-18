@@ -138,6 +138,15 @@ export interface Review {
   createdAt: string;
 }
 
+/** Narrative totals frozen into a briefing for one correlated topic: counts only, no handles or post ids (spec 002 US-5, D5). */
+export interface BriefingNarrativeTotal {
+  topicId: string;
+  totalContent: number;
+  distinctAccounts: number;
+  /** Accounts in this topic's posts that are cross-event (ActorLink.isCrossEvent) in the window. */
+  crossEventActors: number;
+}
+
 export interface BriefingSnapshot {
   title: string;
   status: EventStatus;
@@ -148,10 +157,8 @@ export interface BriefingSnapshot {
   evidenceIds: string[];
   aoiId?: string;
   window?: TimeWindow;
-  narrativeItemIds?: string[];
   topicId?: string;
-  narrativeTheme?: string;
-  correlatedSourcesCount?: number;
+  narrativeTotals?: BriefingNarrativeTotal[]; // one per event correlation, in that order; absent on briefings published before 2026-11-19
 }
 
 export interface Briefing {
@@ -208,6 +215,7 @@ export interface DemoActions {
 export interface NarrativeTrendPoint {
   time: string;
   count: number;
+  itemIds: string[]; // posts in this 24h bucket, time order; length === count
 }
 
 /** Text-only narrative theme; every number for it is computed from items (ADR-005, spec 002 T206). */
@@ -219,6 +227,18 @@ export interface NarrativeTheme {
   targetAoiId: string;
 }
 
+/** Posts of one account inside a cluster view (analyst drill-down, spec 002 FR-211). */
+export interface NarrativeAccountItems {
+  account: string;
+  itemIds: string[]; // time order
+}
+
+/** Which posts of a cluster view the panel lists (spec 002 FR-211, M-201). */
+export type NarrativeItemFilter =
+  | { kind: "all" }
+  | { kind: "bucket"; index: number }
+  | { kind: "account"; account: string };
+
 /** Screen view of a theme, built by buildNarrativeClusterViews (analysis.ts) from computed clusters. */
 export interface NarrativeCluster {
   id: string;
@@ -229,6 +249,7 @@ export interface NarrativeCluster {
   lastObservedAt: string;
   totalContent: number;
   uniqueAccountsCount: number;
+  accounts: NarrativeAccountItems[]; // sorted by account; length === uniqueAccountsCount
   hasSufficientGeoMetadata: boolean;
   volumeTrend: NarrativeTrendPoint[];
   items: NarrativeItem[];

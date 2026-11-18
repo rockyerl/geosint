@@ -236,3 +236,12 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 - Posted-from location is shown as a count only; it never changes the status.
 - G-102 after B-103 still lacks a scene in the window, so it stays "insufficient".
 - This supersedes the §14 bullet on hand-typed CORR, and also the CORR-xx descriptions at lines 47–50 and the table rows at lines 82–84.
+
+## 18. Update 2026-11-19 — narrative UI + briefing totals (T209, T212)
+
+- The threshold UI is gone everywhere (event detail panel, dashboard, tactical map).
+- Counts open their posts: VOLUME, trend buckets and account chips in the panel, and the count in the correlation matrix.
+- Briefings freeze per-topic totals (posts, distinct accounts, cross-event actors) for pimpinan, with no handles.
+- T210 / T211 are covered by `/narasi` (T217).
+- Built, not verified.
+- This supersedes the §13/§14 bullets on `>= 10` labels.

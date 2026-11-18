@@ -3,14 +3,17 @@ import type {
   AccountStop,
   ActorLink,
   Area,
+  BriefingNarrativeTotal,
   ComputedCluster,
   CorrelationSummary,
   CorrelationTrendBucket,
   EventCorrelation,
   Evidence,
   GeoEvent,
+  NarrativeAccountItems,
   NarrativeCluster,
   NarrativeItem,
+  NarrativeItemFilter,
   NarrativeTheme,
   NarrativeWorkspaceData,
   Scene,
@@ -214,6 +217,7 @@ export function buildNarrativeClusterViews(
   return themes.flatMap((theme) => {
     const cluster = clusters.find((c) => c.id === clusterId(theme.topicId, theme.targetAoiId));
     if (!cluster) return [];
+    const ordered = items.filter((i) => cluster.itemIds.includes(i.id)).sort(compareByTime);
     return [
       {
         id: theme.id,
@@ -224,12 +228,44 @@ export function buildNarrativeClusterViews(
         lastObservedAt: cluster.lastObservedAt,
         totalContent: cluster.totalContent,
         uniqueAccountsCount: cluster.distinctAccounts,
+        accounts: groupItemIdsByAccount(ordered),
         hasSufficientGeoMetadata: cluster.publishLocationCoverage > 0,
-        volumeTrend: cluster.trendBuckets.map((b) => ({ time: b.label, count: b.count })),
-        items: items.filter((i) => cluster.itemIds.includes(i.id)).sort(compareByTime),
+        volumeTrend: cluster.trendBuckets.map((b) => ({
+          time: b.label,
+          count: b.count,
+          itemIds: ordered
+            .filter((i) => isInWindow(i.publishedAt, { from: b.from, to: b.to }))
+            .map((i) => i.id),
+        })),
+        items: ordered,
       },
     ];
   });
+}
+
+/** Item ids per account, accounts sorted; handle-less items are skipped. `ordered` is in time order. */
+function groupItemIdsByAccount(ordered: NarrativeItem[]): NarrativeAccountItems[] {
+  const byAccount = new Map<string, string[]>();
+  for (const item of ordered) {
+    if (!item.authorAccount) continue;
+    byAccount.set(item.authorAccount, [...(byAccount.get(item.authorAccount) ?? []), item.id]);
+  }
+  return [...byAccount.entries()]
+    .sort(([a], [b]) => compareText(a, b))
+    .map(([account, itemIds]) => ({ account, itemIds }));
+}
+
+/** The posts behind one count of a cluster view (FR-211: every count opens its items). Unknown bucket/account → []. */
+export function selectClusterItems(
+  cluster: NarrativeCluster,
+  filter: NarrativeItemFilter
+): NarrativeItem[] {
+  if (filter.kind === "all") return cluster.items;
+  const ids =
+    filter.kind === "bucket"
+      ? (cluster.volumeTrend[filter.index]?.itemIds ?? [])
+      : (cluster.accounts.find((a) => a.account === filter.account)?.itemIds ?? []);
+  return cluster.items.filter((i) => ids.includes(i.id));
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -384,6 +420,41 @@ export function computeEventCorrelations(input: EventCorrelationInput): EventCor
   return topicIds
     .map((topicId) => computeEventCorrelation({ ...input, topicId }))
     .sort((a, b) => b.totalContent - a.totalContent || compareText(a.topicId, b.topicId));
+}
+
+/** Narrative totals for a briefing snapshot, one per correlation (same order): counts only (spec 002 US-5, D5). */
+export function computeBriefingNarrativeTotals(
+  correlations: EventCorrelation[],
+  items: NarrativeItem[],
+  events: GeoEvent[],
+  window: TimeWindow
+): BriefingNarrativeTotal[] {
+  const crossEvent = new Set(
+    computeActorLinks(items, events, window)
+      .filter((a) => a.isCrossEvent)
+      .map((a) => a.account)
+  );
+  return correlations.map((c) => {
+    const accounts = sortedUnique(
+      items.flatMap((i) =>
+        c.narrativeItemIds.includes(i.id) && i.authorAccount ? [i.authorAccount] : []
+      )
+    );
+    return {
+      topicId: c.topicId,
+      totalContent: c.totalContent,
+      distinctAccounts: c.distinctAccounts,
+      crossEventActors: accounts.filter((a) => crossEvent.has(a)).length,
+    };
+  });
+}
+
+/** One briefing line, e.g. "Akses Aruna Terputus: 10 konten · 10 akun unik · 2 aktor lintas kejadian". */
+export function formatBriefingNarrativeTotal(
+  total: BriefingNarrativeTotal,
+  topicLabel: string
+): string {
+  return `${topicLabel}: ${total.totalContent} konten · ${total.distinctAccounts} akun unik · ${total.crossEventActors} aktor lintas kejadian`;
 }
 
 export function toCorrelationSummary(c: EventCorrelation): CorrelationSummary {

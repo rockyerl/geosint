@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useGeosint } from "../context";
+import { formatBriefingNarrativeTotal } from "../analysis";
 import { Printer, ArrowLeft, FileCheck, AlertTriangle, History } from "lucide-react";
 
 interface BriefingViewProps {
@@ -222,6 +223,31 @@ export function BriefingView({ eventId }: BriefingViewProps) {
               {currentBriefing.snapshot.nextAction}
             </p>
           </div>
+
+          {/* Narrative totals frozen at approval: counts only, no handles (spec 002 US-5, T212) */}
+          {currentBriefing.snapshot.narrativeTotals && (
+            <div className="mb-8 pt-4 border-t border-slate-200 text-xs">
+              <span className="font-mono font-bold text-slate-700 uppercase block mb-2">
+                Ringkasan Narasi Terbuka saat Disetujui (simulasi, jumlah saja):
+              </span>
+              {currentBriefing.snapshot.narrativeTotals.length === 0 ? (
+                <p className="font-mono text-[11px] text-slate-600">
+                  Tidak ada narasi terbuka yang menyebut sektor ini dalam periode.
+                </p>
+              ) : (
+                <ul className="space-y-1 font-mono text-[11px] text-slate-600 list-disc list-inside">
+                  {currentBriefing.snapshot.narrativeTotals.map((t) => (
+                    <li key={t.topicId}>
+                      {formatBriefingNarrativeTotal(
+                        t,
+                        state.topics.find((x) => x.id === t.topicId)?.label ?? t.topicId
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Evidence Reference Index */}
           <div className="mb-8 pt-4 border-t border-slate-200 text-xs">

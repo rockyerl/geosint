@@ -11,7 +11,10 @@ import {
   buildNarrativeWorkspace,
   computeAccountStops,
   computeActorLinks,
+  computeBriefingNarrativeTotals,
   computeConcentration,
+  formatBriefingNarrativeTotal,
+  selectClusterItems,
   computeNarrativeClusters,
   parseWindowPreset,
   presetWindow,
@@ -645,5 +648,138 @@ describe("Spec 002 T218 — computed event correlation (NAC-19..NAC-23)", () => 
     const unknown = repo.getAreaCorrelations("analis", "AOI-99");
     expect(unknown.success).toBe(false);
     if (!unknown.success) expect(unknown.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("Spec 002 T209/T212 — drill-down and briefing totals (NAC-24..NAC-26)", () => {
+  let repo: GeosintRepository;
+
+  beforeEach(() => {
+    repo = new GeosintRepository(INITIAL_FIXTURE);
+  });
+
+  const views = () =>
+    buildNarrativeClusterViews(
+      INITIAL_FIXTURE.narrativeThemes,
+      INITIAL_FIXTURE.narrativeItems,
+      P48
+    );
+  const viewOf = (id: string) => {
+    const view = views().find((v) => v.id === id);
+    if (!view) throw new Error(`cluster view ${id} missing`);
+    return view;
+  };
+
+  const eventOf = (id: string): GeoEvent => {
+    const found = INITIAL_FIXTURE.events.find((e) => e.id === id);
+    if (!found) throw new Error(`fixture event ${id} missing`);
+    return found;
+  };
+
+  const totalsFor = (id: string, items: NarrativeItem[] = INITIAL_FIXTURE.narrativeItems) => {
+    const correlations = computeEventCorrelations({
+      event: eventOf(id),
+      window: P48,
+      evidence: INITIAL_FIXTURE.evidence,
+      scenes: INITIAL_FIXTURE.scenes,
+      items,
+    });
+    return computeBriefingNarrativeTotals(correlations, items, INITIAL_FIXTURE.events, P48);
+  };
+
+  const G101_TOTALS = [
+    { topicId: "TOP-01", totalContent: 10, distinctAccounts: 10, crossEventActors: 2 },
+  ];
+
+  it("NAC-24: bucket and account drill-down lists the posts behind each count, deterministically", () => {
+    // NAR-01 = NC-01..NC-10 in TOP-01:AOI-01, 10 distinct handles, buckets 2 then 8
+    const nar1 = viewOf("NAR-01");
+    expect(nar1.volumeTrend.map((b) => b.itemIds.length)).toEqual([2, 8]);
+    expect(nar1.volumeTrend.map((b) => b.itemIds.length)).toEqual(
+      nar1.volumeTrend.map((b) => b.count)
+    );
+    expect(nar1.volumeTrend.flatMap((b) => b.itemIds)).toEqual(nar1.items.map((i) => i.id));
+
+    expect(nar1.accounts).toHaveLength(nar1.uniqueAccountsCount);
+    expect(nar1.accounts).toHaveLength(10);
+    const handles = nar1.accounts.map((a) => a.account);
+    expect(handles).toEqual([...handles].sort());
+    expect(nar1.accounts.flatMap((a) => a.itemIds).sort()).toEqual(
+      nar1.items.map((i) => i.id).sort()
+    );
+
+    // NAR-02 = N-201..N-206: @warga_sagara N-201 + N-206, @pengamat_langit N-203 + N-204
+    const nar2 = viewOf("NAR-02");
+    expect(nar2.accounts).toEqual([
+      { account: "@pantau_ops_01", itemIds: ["N-202"] },
+      { account: "@pengamat_langit", itemIds: ["N-203", "N-204"] },
+      { account: "@radar_lintas", itemIds: ["N-205"] },
+      { account: "@warga_sagara", itemIds: ["N-201", "N-206"] },
+    ]);
+
+    expect(selectClusterItems(nar1, { kind: "all" }).map((i) => i.id)).toEqual(
+      nar1.items.map((i) => i.id)
+    );
+    expect(selectClusterItems(nar1, { kind: "bucket", index: 0 }).map((i) => i.id)).toEqual(
+      nar1.volumeTrend[0].itemIds
+    );
+    const sagara = selectClusterItems(nar2, { kind: "account", account: "@warga_sagara" });
+    expect(sagara.map((i) => i.id)).toEqual(["N-201", "N-206"]);
+    expect(selectClusterItems(nar2, { kind: "account", account: "@tidak_ada" })).toEqual([]);
+    expect(selectClusterItems(nar1, { kind: "bucket", index: 9 })).toEqual([]);
+
+    expect(views()).toEqual(views());
+    expect(selectClusterItems(nar2, { kind: "account", account: "@warga_sagara" })).toEqual(sagara);
+  });
+
+  it("NAC-25: briefing narrative totals are computed per correlation and formatted as counts only", () => {
+    // G-101 TOP-01 = NC-01..NC-10; cross-event handles inside it: @pantau_ops_01, @radar_lintas
+    const g101 = totalsFor("G-101");
+    expect(g101).toEqual(G101_TOTALS);
+    // G-102: TOP-02 = N-201..N-206 (cross-event @pantau_ops_01, @radar_lintas); TOP-01 = NC-12, NC-13 (none)
+    expect(totalsFor("G-102")).toEqual([
+      { topicId: "TOP-02", totalContent: 6, distinctAccounts: 4, crossEventActors: 2 },
+      { topicId: "TOP-01", totalContent: 2, distinctAccounts: 2, crossEventActors: 0 },
+    ]);
+    // G-103: TOP-03 = NL-01..NL-12, only @radar_lintas is cross-event
+    expect(totalsFor("G-103")).toEqual([
+      { topicId: "TOP-03", totalContent: 12, distinctAccounts: 4, crossEventActors: 1 },
+    ]);
+
+    expect(totalsFor("G-101", [...INITIAL_FIXTURE.narrativeItems].reverse())).toEqual(g101);
+
+    expect(formatBriefingNarrativeTotal(g101[0], "Akses Aruna Terputus")).toBe(
+      "Akses Aruna Terputus: 10 konten · 10 akun unik · 2 aktor lintas kejadian"
+    );
+  });
+
+  it("NAC-26: published snapshot carries narrative totals without handles or post ids and only analis may publish", () => {
+    const review = repo.reviewEvent("analis", "G-101", "follow_up_required", "Catatan uji", [
+      "E-02",
+    ]);
+    expect(review.success).toBe(true);
+
+    const bahan = { findings: "Temuan uji", limitations: "Batas uji", nextAction: "Arahan uji" };
+    const published = repo.publishBriefing("analis", "G-101", bahan);
+    expect(published.success).toBe(true);
+    if (!published.success) return;
+    const { snapshot } = published.briefing;
+    expect(snapshot.narrativeTotals).toEqual(G101_TOTALS);
+    expect("narrativeItemIds" in snapshot).toBe(false);
+
+    const leader = repo.getEvent("pimpinan", "G-101");
+    expect(leader.success).toBe(true);
+    if (leader.success && leader.role === "pimpinan") {
+      const json = JSON.stringify(leader.data.latestApprovedBriefing);
+      expect(json).toContain("narrativeTotals");
+      expect(json).not.toMatch(/@/);
+      expect(json).not.toMatch(/NC-/);
+    }
+
+    for (const role of ["pimpinan", "operator"] as const) {
+      const denied = repo.publishBriefing(role, "G-101", bahan);
+      expect(denied.success).toBe(false);
+      if (!denied.success) expect(denied.code).toBe("FORBIDDEN");
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import type { EventCorrelation, Evidence, Topic } from "../types";
+import type { EventCorrelation, Evidence, NarrativeItem, Topic } from "../types";
 import { DEFAULT_WINDOW_PRESET } from "../analysis";
 import { formatWib } from "./account-timeline";
 import {
@@ -20,6 +20,7 @@ interface CorrelationMatrixProps {
   correlations: EventCorrelation[];
   evidenceList: Evidence[];
   topics: Topic[];
+  items: NarrativeItem[];
   onOpenRadar?: () => void;
 }
 
@@ -28,9 +29,11 @@ export function CorrelationMatrix({
   correlations,
   evidenceList,
   topics,
+  items,
   onOpenRadar,
 }: CorrelationMatrixProps) {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [showPosts, setShowPosts] = useState(false);
   const active = correlations.find((c) => c.topicId === selectedTopicId) ?? correlations[0];
 
   if (!active) {
@@ -74,7 +77,10 @@ export function CorrelationMatrix({
             return (
               <button
                 key={c.topicId}
-                onClick={() => setSelectedTopicId(c.topicId)}
+                onClick={() => {
+                  setSelectedTopicId(c.topicId);
+                  setShowPosts(false);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap transition-all border flex items-center gap-1.5 ${
                   isTabActive
                     ? "bg-indigo-600 border-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30"
@@ -234,12 +240,33 @@ export function CorrelationMatrix({
                 <div className="text-white font-bold text-xs mb-1">
                   {topicLabel(active.topicId)}
                 </div>
-                <p className="text-[11px] text-slate-300 leading-normal mb-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPosts((v) => !v)}
+                  className="block text-left text-[11px] text-slate-300 leading-normal mb-1 hover:underline"
+                >
                   {active.totalContent} konten · {active.distinctAccounts} akun unik
-                </p>
-                <p className="text-[11px] text-slate-300 leading-normal mb-2">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPosts((v) => !v)}
+                  className="block text-left text-[11px] text-slate-300 leading-normal mb-2 hover:underline"
+                >
                   Lokasi unggahan: {active.locatedContent}/{active.totalContent} konten
-                </p>
+                </button>
+                {showPosts && (
+                  <ul className="mb-2 space-y-1">
+                    {active.narrativeItemIds.map((id) => {
+                      const item = items.find((i) => i.id === id);
+                      return (
+                        <li key={id} className="text-[10px] text-slate-300">
+                          {id} · {item?.authorAccount ?? "—"} ·{" "}
+                          {item?.publishedAoiId ?? "tanpa lokasi unggahan"} · {item?.title}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               <Link

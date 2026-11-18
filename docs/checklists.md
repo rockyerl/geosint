@@ -33,7 +33,7 @@ The PoC is done when a single demo run (≈10 min, offline) shows:
 - [ ] Fixture consistency (accounts 3 vs 10, NAR-01/NAR-02 totals, CORR-01 geo flag,
       CORR-01 "< 24 jam", CORR-02 E-04 twice) — spec 001 / 002 Update 2026-11-19 (c): CORR items removed (T218).
 - [ ] `generateDraftSummary` flood branch hard-codes G-101 text — spec 004
-- [ ] Remove the misread "RAB 10 akun" threshold (`repository.ts:512-522`, `types.ts:192`, fixture comments) — spec 002, ADR-006
+- [ ] Remove the misread "RAB 10 akun" threshold (`repository.ts:512-522`, `types.ts:192`, fixture comments) — spec 002, ADR-006 **Update 2026-11-19:** UI labels removed too (T209); built, not verified.
 - [ ] **Task (Q12, decided):** remove the `AUTH_SECRET` hard-coded fallback (`session.ts:18`, `middleware.ts:7`).
       Wire `lib/env.ts` so the app fails fast in production when the variable is missing. Keep `.env.example` documented. Do this in a later coding session.
 
@@ -82,3 +82,4 @@ New fixes (in scope):
 - [ ] A screen uses the computed correlation (`/narasi`, spec 002 FR-212); event detail stops showing hand-typed NAR/CORR data — Update 2026-11-19: screens now get computed counts via the adapter; /narasi still pending (T217). Update 2026-11-19 (b): `/narasi` built (T217), not verified; event detail still pending (T218). Update 2026-11-19 (c): event detail, dashboard and map read the computed correlation; CORR-xx removed (T218), not verified.
 - [ ] Deterministic audit IDs (spec 001 FIX-009, low priority) — built 2026-11-19, not verified
 - [x] Briefing page opens the newest version, not v1 (`briefing-view.tsx`; spec 001 T014) — fixed 2026-11-19, checked in the browser
+- [ ] **Update 2026-11-19:** Presenter run book written (`docs/demo_manual.md`); rehearse with it.

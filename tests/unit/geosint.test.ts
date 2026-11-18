@@ -382,7 +382,6 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-21)", () => {
       nextAction: "Minta petugas cek akses di Sektor Aruna dan laporkan kondisi terkini.",
       aoiId: "AOI-01",
       topicId: "TOP-01",
-      narrativeItemIds: ["NC-01", "NC-02", "NC-03"],
     });
     expect(brief1.success).toBe(true);
     if (brief1.success) {
@@ -411,10 +410,10 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-21)", () => {
       nextAction: "Rute alternatif aman digunakan untuk manuver latihan.",
       aoiId: "AOI-01",
       topicId: "TOP-01",
-      narrativeItemIds: ["NC-01", "NC-02", "NC-03", "NC-07"],
     });
     expect(brief2.success).toBe(true);
     if (brief2.success) {
+      expect(brief2.briefing.snapshot.narrativeTotals?.[0].totalContent).toBe(10);
       expect(brief2.briefing.version).toBe(2);
       expect(brief2.briefing.snapshot.status).toBe("resolved");
       expect(brief2.briefing.snapshot.evidenceIds).toContain("E-06");

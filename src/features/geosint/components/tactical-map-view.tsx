@@ -228,19 +228,7 @@ export function TacticalMapView() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
-                        <span>
-                          {nar.uniqueAccountsCount >= 10
-                            ? `Akun Unik: ${nar.uniqueAccountsCount}`
-                            : "Status: Di Bawah Ambang RAB"}
-                        </span>
-                        <span>•</span>
-                        <span
-                          className={
-                            nar.uniqueAccountsCount >= 10 ? "text-emerald-400" : "text-amber-400"
-                          }
-                        >
-                          {nar.uniqueAccountsCount >= 10 ? "≥10 Valid RAB" : "<10 Data Terbatas"}
-                        </span>
+                        <span>Akun unik: {nar.uniqueAccountsCount}</span>
                       </div>
                     </div>
                   ))}

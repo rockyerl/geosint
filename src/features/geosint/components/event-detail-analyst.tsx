@@ -302,6 +302,7 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
             correlations={eventCorrelations}
             evidenceList={evidence}
             topics={state.topics}
+            items={state.narrativeItems}
             onOpenRadar={
               area.id === "AOI-01" ? () => router.push(`/peta/${area.id}/bandingkan`) : undefined
             }

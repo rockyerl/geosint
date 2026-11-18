@@ -333,19 +333,7 @@ export function GeosintDashboard() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
-                    <span>Akun: {activeCluster.uniqueAccountsCount}</span>
-                    <span>•</span>
-                    <span
-                      className={
-                        activeCluster.uniqueAccountsCount >= 10
-                          ? "text-emerald-400"
-                          : "text-amber-400"
-                      }
-                    >
-                      {activeCluster.uniqueAccountsCount >= 10
-                        ? "✓ Memenuhi Ambang RAB (≥10 Akun)"
-                        : "⚠ Di Bawah Ambang RAB (<10 Akun)"}
-                    </span>
+                    <span>Akun unik: {activeCluster.uniqueAccountsCount}</span>
                   </div>
                 </div>
 

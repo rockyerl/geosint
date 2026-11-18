@@ -90,3 +90,15 @@ Changes to rows above (rows kept as written; these notes win):
   2. G-102 shows tabs TOP-02 / TOP-01 and `BUKTI BELUM LENGKAP`, missing SRC-SAT and SRC-INT. After importing B-103 as operator, only SRC-SAT is missing and the field pillar shows E-08.
   3. As pimpinan, G-102 shows counts and "Korelasi belum lengkap", with no "RAB" text and no handles.
   4. The dashboard and the tactical map show the computed rationale with no "CORR-" ids.
+
+### Update 2026-11-19 (f) — T209 / T212
+
+| ID     | Case                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NAC-24 | Drill-down on `buildNarrativeClusterViews`: NAR-01 bucket `itemIds` lengths equal `count` (2, 8) and concatenate to `items`; `accounts` is sorted, length 10 = `uniqueAccountsCount`. NAR-02 `accounts` groups N-201..N-206 per handle. `selectClusterItems`: `all`, `bucket`, `account`; unknown account or bucket 9 gives `[]`; deterministic.                  |
+| NAC-25 | `computeBriefingNarrativeTotals`: G-101 `[TOP-01, 10, 10, 2]`; G-102 `[TOP-02, 6, 4, 2]`, `[TOP-01, 2, 2, 0]`; G-103 `[TOP-03, 12, 4, 1]`; same result for reversed items; `formatBriefingNarrativeTotal` gives "Akses Aruna Terputus: 10 konten · 10 akun unik · 2 aktor lintas kejadian".                                                                       |
+| NAC-26 | `publishBriefing` snapshot for G-101 carries `narrativeTotals` equal to NAC-25, has no `narrativeItemIds` key; pimpinan `latestApprovedBriefing` JSON has no `@` and no `NC-`; pimpinan `publishBriefing` is `FORBIDDEN`.                                                                                                                                         |
+
+- M-201 (manual, as analis): clicking VOLUME KONTEN, a trend bucket or an account chip lists exactly those posts; the correlation matrix count expands its posts.
+- M-202 (manual, as pimpinan): the briefing and event detail show "… konten · … akun unik · … aktor lintas kejadian" and no `@`.
+- M-204 (manual): no "Ambang" / "RAB" text on the event detail, dashboard or map.
