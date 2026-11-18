@@ -4,7 +4,9 @@ import type {
   ComputedCluster,
   CorrelationTrendBucket,
   GeoEvent,
+  NarrativeCluster,
   NarrativeItem,
+  NarrativeTheme,
   TimeWindow,
 } from "./types";
 
@@ -159,4 +161,32 @@ export function computeAccountProfile(
   if (!link) return null;
   const own = items.filter((i) => link.itemIds.includes(i.id)).sort(compareByTime);
   return { ...link, items: own };
+}
+
+/** Builds the screen view of each theme from the computed cluster of its topic + area (no typed numbers). */
+export function buildNarrativeClusterViews(
+  themes: NarrativeTheme[],
+  items: NarrativeItem[],
+  window: TimeWindow
+): NarrativeCluster[] {
+  const clusters = computeNarrativeClusters(items, window);
+  return themes.flatMap((theme) => {
+    const cluster = clusters.find((c) => c.id === clusterId(theme.topicId, theme.targetAoiId));
+    if (!cluster) return [];
+    return [
+      {
+        id: theme.id,
+        theme: theme.theme,
+        sourceId: theme.sourceId,
+        targetAoiId: theme.targetAoiId,
+        firstObservedAt: cluster.firstObservedAt,
+        lastObservedAt: cluster.lastObservedAt,
+        totalContent: cluster.totalContent,
+        uniqueAccountsCount: cluster.distinctAccounts,
+        hasSufficientGeoMetadata: cluster.publishLocationCoverage > 0,
+        volumeTrend: cluster.trendBuckets.map((b) => ({ time: b.label, count: b.count })),
+        items: items.filter((i) => cluster.itemIds.includes(i.id)).sort(compareByTime),
+      },
+    ];
+  });
 }

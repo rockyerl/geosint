@@ -68,6 +68,7 @@ export interface TimeWindow {
 export interface Topic {
   id: string;
   label: string;
+  claimsEventKind: EventKind; // spec 002 FR-215; used by spec 005 verification
 }
 
 export interface NarrativeItem {
@@ -181,6 +182,16 @@ export interface NarrativeTrendPoint {
   count: number;
 }
 
+/** Text-only narrative theme; every number for it is computed from items (ADR-005, spec 002 T206). */
+export interface NarrativeTheme {
+  id: string;
+  theme: string;
+  topicId: string;
+  sourceId: string;
+  targetAoiId: string;
+}
+
+/** Screen view of a theme, built by buildNarrativeClusterViews (analysis.ts) from computed clusters. */
 export interface NarrativeCluster {
   id: string;
   theme: string;
@@ -189,7 +200,7 @@ export interface NarrativeCluster {
   firstObservedAt: string;
   lastObservedAt: string;
   totalContent: number;
-  uniqueAccountsCount: number; // Hand-typed fixture value; replaced by computed clusters (spec 002 T206)
+  uniqueAccountsCount: number;
   hasSufficientGeoMetadata: boolean;
   volumeTrend: NarrativeTrendPoint[];
   items: NarrativeItem[];
@@ -283,7 +294,7 @@ export interface DemoState {
   topics: Topic[];
   narrativeItems: NarrativeItem[];
   demoPreset: DemoPreset;
-  narrativeClusters: NarrativeCluster[];
+  narrativeThemes: NarrativeTheme[];
   correlations: MultiSourceCorrelation[];
   demoActions: DemoActions;
   reviews: Review[];

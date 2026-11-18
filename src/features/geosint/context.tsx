@@ -121,7 +121,11 @@ function getStateSnapshot(): DemoState {
       return cachedState;
     }
     const parsed = JSON.parse(raw);
-    if (parsed && parsed.fixtureVersion === 2 && Array.isArray(parsed.events)) {
+    if (
+      parsed &&
+      parsed.fixtureVersion === INITIAL_FIXTURE.fixtureVersion &&
+      Array.isArray(parsed.events)
+    ) {
       cachedStateRaw = raw;
       cachedState = parsed as DemoState;
       return cachedState;

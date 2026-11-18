@@ -30,6 +30,7 @@ import {
   ActorLink,
 } from "./types";
 import {
+  buildNarrativeClusterViews,
   clusterId,
   computeAccountProfile,
   computeActorLinks,
@@ -76,7 +77,11 @@ export function loadStateFromStorage(): { state: DemoState; recoveredFromCorrupt
       return { state: initial, recoveredFromCorrupt: false };
     }
     const parsed = JSON.parse(raw);
-    if (!parsed || parsed.fixtureVersion !== 2 || !Array.isArray(parsed.events)) {
+    if (
+      !parsed ||
+      parsed.fixtureVersion !== INITIAL_FIXTURE.fixtureVersion ||
+      !Array.isArray(parsed.events)
+    ) {
       throw new Error("Invalid schema structure");
     }
     return { state: parsed as DemoState, recoveredFromCorrupt: false };
@@ -300,15 +305,14 @@ export class GeosintRepository {
     });
 
     if (role === "pimpinan") {
+      const narrativeViews = this.getNarrativeClusters();
       const projected: EventSummaryProjection[] = result.map((e) => {
         const area = this.state.areas.find((a) => a.id === e.aoiId);
         const approvedBriefings = this.state.briefings
           .filter((b) => b.eventId === e.id)
           .sort((a, b) => b.version - a.version);
 
-        const hasNarrative = (this.state.narrativeClusters || []).some(
-          (n) => n.targetAoiId === e.aoiId
-        );
+        const hasNarrative = narrativeViews.some((n) => n.targetAoiId === e.aoiId);
 
         return {
           id: e.id,
@@ -375,9 +379,7 @@ export class GeosintRepository {
     if (role === "pimpinan") {
       // Pimpinan view: concise executive projection, NO raw internal notes, NO raw unapproved drafts
       const corr = (this.state.correlations || []).filter((c) => c.eventId === eventId);
-      const narrative = (this.state.narrativeClusters || []).find(
-        (n) => n.targetAoiId === event.aoiId
-      );
+      const narrative = this.getNarrativeClusters(event.aoiId)[0];
 
       return {
         success: true,
@@ -410,9 +412,7 @@ export class GeosintRepository {
     const reviews = this.state.reviews.filter((r) => r.eventId === eventId);
     const correlations = getCorrelations(eventId, this.state);
     const multiCorrs = (this.state.correlations || []).filter((c) => c.eventId === eventId);
-    const narratives = (this.state.narrativeClusters || []).filter(
-      (n) => n.targetAoiId === event.aoiId
-    );
+    const narratives = this.getNarrativeClusters(event.aoiId);
     const draftSummary = generateDraftSummary(event, evidence, area);
     const missingFieldConfirmation = event.status !== "resolved" && !hasFieldConfirmation(evidence);
 
@@ -1047,7 +1047,7 @@ export class GeosintRepository {
       role: "operator",
       action: "reset",
       targetId: "SYSTEM",
-      details: "Sistem berhasil di-reset kembali ke seed awal fixtureVersion 2",
+      details: `Sistem berhasil di-reset kembali ke seed awal fixtureVersion ${INITIAL_FIXTURE.fixtureVersion}`,
       success: true,
     });
 
@@ -1081,8 +1081,10 @@ export class GeosintRepository {
   }
 
   public getNarrativeClusters(aoiId?: string): NarrativeCluster[] {
-    return (this.state.narrativeClusters || []).filter(
-      (n) => !aoiId || aoiId === "all" || n.targetAoiId === aoiId
-    );
+    return buildNarrativeClusterViews(
+      this.state.narrativeThemes,
+      this.state.narrativeItems,
+      this.state.demoPreset.window
+    ).filter((n) => !aoiId || aoiId === "all" || n.targetAoiId === aoiId);
   }
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useGeosint } from "../context";
 import { MapCanvas } from "./map-canvas";
 import { getSourceFreshness } from "../repository";
+import { buildNarrativeClusterViews } from "../analysis";
 import {
   Satellite,
   ShieldAlert,
@@ -46,9 +47,11 @@ export function GeosintDashboard() {
   }));
 
   // Narrative cluster for selected sector
-  const narrativeClusters = (state.narrativeClusters || []).filter(
-    (n) => n.targetAoiId === selectedDashboardAoi
-  );
+  const narrativeClusters = buildNarrativeClusterViews(
+    state.narrativeThemes,
+    state.narrativeItems,
+    state.demoPreset.window
+  ).filter((n) => n.targetAoiId === selectedDashboardAoi);
   const activeCluster = narrativeClusters[0];
 
   // Correlation for selected sector

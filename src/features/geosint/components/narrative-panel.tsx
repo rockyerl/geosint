@@ -211,8 +211,8 @@ export function NarrativePanel({
               <span>{item.publishedAt}</span>
             </div>
 
-            <h5 className="font-bold text-white text-sm mb-1">{item.headline}</h5>
-            <p className="text-slate-300 leading-relaxed mb-3">{item.snippet}</p>
+            <h5 className="font-bold text-white text-sm mb-1">{item.headline ?? item.title}</h5>
+            {item.snippet && <p className="text-slate-300 leading-relaxed mb-3">{item.snippet}</p>}
 
             {/* Three Location Breakdown Badges */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2.5 border-t border-slate-800 text-[11px] font-mono">

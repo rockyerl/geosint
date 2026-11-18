@@ -213,3 +213,9 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 - Narrative clustering, distinct-account counting and actor links are now computed in `analysis.ts` (built, not verified).
 - The RAB threshold is gone from the repository.
 - The UI still shows the hand-typed `narrativeClusters` and hard-coded `>= 10` labels until T209–T212.
+
+## 14. Update 2026-11-19 — fixture v3
+
+- Fixture v3 is in (built, not verified), and old saved state self-heals.
+- Narrative numbers on screens are now computed (adapter); only the UI's own `>= 10` labels and the pimpinan hard-coded strings remain (T209–T212).
+- CORR-01/02 `status`, `hasSufficientGeoData` and rationale stay hand-typed until T218 (CORR-01 says geo data sufficient while the computed NAR-01 coverage is 0; CORR-02 says G-102 has no field report, which is false after B-103).

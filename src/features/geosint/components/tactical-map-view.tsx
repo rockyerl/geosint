@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGeosint } from "../context";
 import { MapCanvas } from "./map-canvas";
+import { buildNarrativeClusterViews } from "../analysis";
 import { Crosshair, Sliders, MapPin, MessageSquare, Link2, Calendar } from "lucide-react";
 
 export function TacticalMapView() {
@@ -18,9 +19,11 @@ export function TacticalMapView() {
 
   const aoiEvents = state.events.filter((e) => e.aoiId === selectedAoiId);
   const aoiScenes = state.scenes.filter((s) => s.aoiId === selectedAoiId);
-  const aoiNarratives = (state.narrativeClusters || []).filter(
-    (n) => n.targetAoiId === selectedAoiId
-  );
+  const aoiNarratives = buildNarrativeClusterViews(
+    state.narrativeThemes,
+    state.narrativeItems,
+    state.demoPreset.window
+  ).filter((n) => n.targetAoiId === selectedAoiId);
   const aoiCorrelations = (state.correlations || []).filter((c) => c.aoiId === selectedAoiId);
 
   return (

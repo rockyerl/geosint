@@ -52,3 +52,8 @@ Changes to rows above (rows kept as written; these notes win):
 - NAC-15 (inline items): `computeActorLinks` flags cross-event accounts, ignores out-of-window and handle-less items, and sorts by account.
 - NAC-16 (inline): `computeConcentration` breaks ties by content then `aoiId`, and `computeNarrativeClusters` is order-independent.
 - NAC-17: `getAccountProfile` for an unknown account returns `NOT_FOUND`.
+
+### Update 2026-11-19 (b) — fixture v3 tests
+
+- Now written on the v3 seed: NAC-01 (full), NAC-04, NAC-06 (full), NAC-07, NAC-11, NAC-12.
+- NAC-18 (adapter): `buildNarrativeClusterViews` gives NAR-01 10 posts / 10 accounts / [2, 8] and NAR-02 6 / 4, all equal to the computed clusters; a theme without items is omitted.

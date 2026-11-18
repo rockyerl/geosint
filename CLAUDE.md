@@ -94,6 +94,8 @@ Resolving **requires** a `field_confirmation` evidence (rule "E-06") → else `E
 
 Details and evidence: `docs/project_state.md`.
 
+**Update 2026-11-19:** narrative clustering and distinct-account counts are computed (`analysis.ts`, spec 002); the UI labels still apply the old threshold until T209–T212.
+
 ## 6. Rules for working on the PoC
 
 1. **Logic in `repository.ts`, UI in components.** Repository methods take `role` first and
@@ -118,13 +120,13 @@ Details and evidence: `docs/project_state.md`.
 - README/RUNBOOK sidebar tables and the "DB-driven sidebar" claim are wrong
   (`getDynamicSidebarNavigation` is never called; sidebar is hard-coded in `geosint-shell.tsx`).
 - Fixture inconsistencies: NC-01..10 have 10 distinct handles but aggregate says 3;
-  `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`.
+  `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`. **Update 2026-11-19:** counts fixed by fixture v3 (spec 002 T215/T206); CORR-xx `status` / `hasSufficientGeoData` / rationale are still hand-typed until T218.
 - `repository.ts:512-522` and `types.ts:192` apply a misread "RAB 10 akun" threshold (ADR-006).
   Spec 002 removes it. **Update 2026-11-19:** removed from repository and types (spec 002 T203); UI labels remain until T209–T212.
 - `tests/unit/geosint.test.ts` describe label says "01 s/d 10" (there are 15);
   G-DEMO-15 claims "v1 archived" but no archive exists.
 - Topic `TOP-02` is used by `NAR-02` / `N-201` but not defined. The Sagara demo scenario
-  (G-102) has no ending, because no confirmation can be imported for it.
+  (G-102) has no ending, because no confirmation can be imported for it. **Update 2026-11-19:** TOP-02/TOP-03 defined in fixture v3; Sagara ending exists (B-103).
 
 Fix list: `docs/checklists.md`. Every scenario verdict: `docs/scenario_review.md`.
 

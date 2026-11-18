@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it, expect, beforeEach } from "vitest";
 import { GeosintRepository } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 import {
+  buildNarrativeClusterViews,
   computeActorLinks,
   computeConcentration,
   computeNarrativeClusters,
@@ -10,7 +13,7 @@ import type { GeoEvent, NarrativeItem, TimeWindow } from "@/features/geosint/typ
 
 const P48: TimeWindow = INITIAL_FIXTURE.demoPreset.window;
 
-describe("Spec 002 narrative / actor correlation (NAC-01 v2, 02, 03, 05, 06, 08, 09, 10, 15..17)", () => {
+describe("Spec 002 narrative / actor correlation (NAC-01..12, 15..18)", () => {
   let repo: GeosintRepository;
 
   beforeEach(() => {
@@ -30,8 +33,12 @@ describe("Spec 002 narrative / actor correlation (NAC-01 v2, 02, 03, 05, 06, 08,
         Date.parse(n.publishedAt) < Date.parse(P48.to)
     );
 
+  const idsOf = (clusterKey: string) =>
+    [...(clustersOfSeed().find((c) => c.id === clusterKey)?.itemIds ?? [])].sort();
+  const range = (prefix: string, from: number, to: number) =>
+    [...Array(to - from + 1)].map((_, i) => `${prefix}${String(from + i).padStart(2, "0")}`);
+
   it("NAC-01: seed clusters TOP-01 into AOI-01 (NC-01..NC-10) and an unlocated cluster (NC-11)", () => {
-    // TOP-02/TOP-03 expectations added with fixture v3 (T207)
     const clusters = clustersOfSeed();
     const arunaCluster = clusters.find((c) => c.id === "TOP-01:AOI-01");
     expect(arunaCluster).toBeDefined();
@@ -41,6 +48,19 @@ describe("Spec 002 narrative / actor correlation (NAC-01 v2, 02, 03, 05, 06, 08,
 
     const unlocated = clusters.find((c) => c.id === "TOP-01:unlocated");
     expect(unlocated?.itemIds).toEqual(["NC-11"]);
+
+    expect(idsOf("TOP-01:AOI-02")).toEqual(["NC-12", "NC-13"]);
+    expect(idsOf("TOP-02:AOI-02")).toEqual(range("N-", 201, 206));
+    expect(idsOf("TOP-03:AOI-03")).toEqual(range("NL-", 1, 12));
+  });
+
+  it("NAC-04: TOP-02:AOI-02 counts 6 posts from 4 accounts, 1.5 per account, no publish location", () => {
+    // N-201..N-206: @warga_sagara x2, @pantau_ops_01, @pengamat_langit x2, @radar_lintas
+    const cluster = clustersOfSeed().find((c) => c.id === "TOP-02:AOI-02");
+    expect(cluster?.totalContent).toBe(6);
+    expect(cluster?.distinctAccounts).toBe(4);
+    expect(cluster?.itemsPerAccount).toBe(1.5);
+    expect(cluster?.publishLocationCoverage).toBe(0);
   });
 
   it("NAC-02: TOP-01:AOI-01 trend buckets count 2 then 8 across the 48h window", () => {
@@ -75,6 +95,83 @@ describe("Spec 002 narrative / actor correlation (NAC-01 v2, 02, 03, 05, 06, 08,
     const ranked = computeConcentration(clustersOfSeed(), "TOP-01");
     expect(ranked[0].aoiId).toBe("AOI-01");
     expect(ranked.some((c) => c.aoiId === null)).toBe(false);
+    // NC-01..NC-10 (10 handles) in AOI-01, NC-12/NC-13 (2 handles) in AOI-02
+    expect(ranked.map((c) => c.aoiId)).toEqual(["AOI-01", "AOI-02"]);
+    expect(ranked.map((c) => c.distinctAccounts)).toEqual([10, 2]);
+  });
+
+  it("NAC-07: only @pantau_ops_01 and @radar_lintas are cross-event, linked to their areas and events", () => {
+    const res = repo.getActorLinks("analis", P48);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const cross = res.actors.filter((a) => a.isCrossEvent);
+    expect(cross.map((a) => a.account).sort()).toEqual(["@pantau_ops_01", "@radar_lintas"]);
+
+    const pantau = res.actors.find((a) => a.account === "@pantau_ops_01");
+    expect(pantau?.aoiIds).toEqual(["AOI-01", "AOI-02"]);
+    expect(pantau?.eventIds).toEqual(expect.arrayContaining(["G-101", "G-102"]));
+
+    const radar = res.actors.find((a) => a.account === "@radar_lintas");
+    expect(radar?.aoiIds).toEqual(["AOI-01", "AOI-02", "AOI-03"]);
+    expect(radar?.eventIds).toEqual(expect.arrayContaining(["G-101", "G-102", "G-103"]));
+  });
+
+  it("NAC-11: fixture is version 3 with no stored aggregates and no RAB text in source", () => {
+    expect(INITIAL_FIXTURE.fixtureVersion).toBe(3);
+    expect("optionalAccountAggregates" in INITIAL_FIXTURE).toBe(false);
+    expect("narrativeClusters" in INITIAL_FIXTURE).toBe(false);
+    for (const file of ["fixtures.ts", "types.ts", "repository.ts"]) {
+      const source = readFileSync(path.join(process.cwd(), "src/features/geosint", file), "utf8");
+      expect(source, file).not.toMatch(/RAB/);
+    }
+  });
+
+  it("NAC-12: TOP-03:AOI-03 holds 12 posts from 4 accounts, 3 per account, all in the second bucket", () => {
+    // NL-01..NL-12: @radar_lintas, @nila_waspada, @kabar_nila_24, @info_cepat_id x3 each
+    const cluster = clustersOfSeed().find((c) => c.id === "TOP-03:AOI-03");
+    expect(cluster?.itemIds).toHaveLength(12);
+    expect(cluster?.distinctAccounts).toBe(4);
+    expect(cluster?.itemsPerAccount).toBe(3);
+    expect(cluster?.trendBuckets.map((b) => b.count)).toEqual([0, 12]);
+    expect(cluster?.publishLocationCoverage).toBe(0);
+  });
+
+  it("NAC-18: cluster views carry computed counts, trend and items; a theme without posts is omitted", () => {
+    const { narrativeThemes, narrativeItems } = INITIAL_FIXTURE;
+    const views = buildNarrativeClusterViews(narrativeThemes, narrativeItems, P48);
+    const computed = clustersOfSeed();
+
+    const nar1 = views.find((v) => v.id === "NAR-01");
+    const c1 = computed.find((c) => c.id === "TOP-01:AOI-01");
+    expect(nar1?.totalContent).toBe(10);
+    expect(nar1?.uniqueAccountsCount).toBe(10);
+    expect(nar1?.volumeTrend.map((b) => b.count)).toEqual([2, 8]);
+    expect(nar1?.items.map((i) => i.id).sort()).toEqual(range("NC-", 1, 10));
+    expect(nar1?.totalContent).toBe(c1?.totalContent);
+    expect(nar1?.uniqueAccountsCount).toBe(c1?.distinctAccounts);
+    expect(nar1?.volumeTrend.map((b) => b.count)).toEqual(c1?.trendBuckets.map((b) => b.count));
+
+    const nar2 = views.find((v) => v.id === "NAR-02");
+    const c2 = computed.find((c) => c.id === "TOP-02:AOI-02");
+    expect(nar2?.totalContent).toBe(6);
+    expect(nar2?.uniqueAccountsCount).toBe(4);
+    expect(nar2?.totalContent).toBe(c2?.totalContent);
+    expect(nar2?.uniqueAccountsCount).toBe(c2?.distinctAccounts);
+
+    const orphan = {
+      id: "NAR-X",
+      theme: "x",
+      topicId: "TOP-99",
+      sourceId: "SRC-GDELT",
+      targetAoiId: "AOI-01",
+    };
+    const withOrphan = buildNarrativeClusterViews(
+      [...narrativeThemes, orphan],
+      narrativeItems,
+      P48
+    );
+    expect(withOrphan.some((v) => v.id === "NAR-X")).toBe(false);
+    expect(withOrphan.map((v) => v.id)).toEqual(views.map((v) => v.id));
   });
 
   it("NAC-08: account profile of @pantau_ops_01 is time-ordered and links AOI-01 and G-101", () => {
