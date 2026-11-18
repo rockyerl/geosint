@@ -23,7 +23,7 @@ interface EventDetailPimpinanProps {
 }
 
 export function EventDetailPimpinan({ eventId }: EventDetailPimpinanProps) {
-  const { repo, showToast } = useGeosint();
+  const { repo, state, showToast } = useGeosint();
   const [orderSent, setOrderSent] = useState<boolean>(false);
 
   const eventResult = repo.getEvent("pimpinan", eventId);
@@ -68,9 +68,14 @@ export function EventDetailPimpinan({ eventId }: EventDetailPimpinanProps) {
   };
 
   const isAruna = id === "G-101" || aoiId === "AOI-01";
-  const hasInsufficientData = correlations.some(
-    (c) => c.status === "data_insufficient" || !c.hasSufficientGeoData
-  );
+  const topicLabel = (id: string) => state.topics.find((t) => t.id === id)?.label ?? id;
+  const missingSources = [
+    ...new Set(
+      correlations
+        .filter((c) => c.status === "insufficient_evidence")
+        .flatMap((c) => c.missingSources)
+    ),
+  ];
 
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 max-w-5xl w-full mx-auto font-sans">
@@ -177,21 +182,25 @@ export function EventDetailPimpinan({ eventId }: EventDetailPimpinanProps) {
                 <span>3. Narasi Terbuka (GDELT)</span>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                {narrativeSummary ||
-                  (isAruna
-                    ? "24 konten ramai menyebut 'akses jembatan terputus' (14 akun unik terverifikasi)."
-                    : "Narasi media sosial Bukit Sagara (4 akun unik < 10 batas RAB).")}
+                {narrativeSummary ??
+                  "Belum ada narasi terbuka yang menyebut sektor ini dalam periode."}
               </p>
+              {correlations.map((c) => (
+                <p key={c.topicId} className="text-slate-400 text-[10px] mt-1">
+                  {topicLabel(c.topicId)}: {c.totalContent} konten · {c.distinctAccounts} akun
+                  unik · lokasi unggahan {c.locatedContent}/{c.totalContent}
+                </p>
+              ))}
             </div>
           </div>
 
           {/* Insufficient Data Warning if applicable */}
-          {hasInsufficientData && (
+          {missingSources.length > 0 && (
             <div className="mt-3 p-2.5 bg-amber-950/60 border border-amber-600/50 rounded-lg flex items-center gap-2 text-xs text-amber-200">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                <strong>Peringatan Ambang Batas RAB:</strong> Sebagian metadata lokasi akun &lt; 10
-                akun unik per wilayah. Data narasi ini berstatus dugaan tanpa bobot penentu operasi.
+                <strong>Korelasi belum lengkap:</strong> sumber belum tersedia:{" "}
+                {missingSources.join("; ")}. Narasi terbuka berstatus dugaan sampai bukti lengkap.
               </span>
             </div>
           )}

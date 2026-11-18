@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { useGeosint } from "../context";
 import { MapCanvas } from "./map-canvas";
 import { buildNarrativeClusterViews } from "../analysis";
+import { formatWib } from "./account-timeline";
 import { Crosshair, Sliders, MapPin, MessageSquare, Link2, Calendar } from "lucide-react";
 
 export function TacticalMapView() {
-  const { state } = useGeosint();
+  const { role, state, repo } = useGeosint();
   const router = useRouter();
 
   const [selectedAoiId, setSelectedAoiId] = useState<string>("AOI-01");
@@ -24,7 +25,8 @@ export function TacticalMapView() {
     state.narrativeItems,
     state.demoPreset.window
   ).filter((n) => n.targetAoiId === selectedAoiId);
-  const aoiCorrelations = (state.correlations || []).filter((c) => c.aoiId === selectedAoiId);
+  const areaCorrelations = repo.getAreaCorrelations(role, selectedAoiId);
+  const aoiCorrelations = areaCorrelations.success ? areaCorrelations.correlations : [];
 
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 max-w-7xl w-full mx-auto font-sans">
@@ -258,15 +260,19 @@ export function TacticalMapView() {
                 <div className="space-y-2">
                   {aoiCorrelations.map((corr) => (
                     <div
-                      key={corr.id}
+                      key={`${corr.eventId}:${corr.topicId}`}
                       className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs"
                     >
                       <div className="flex items-center justify-between font-mono text-[11px] mb-1">
-                        <span className="font-bold text-indigo-400">{corr.id}</span>
-                        <span className="text-slate-400 text-[10px]">{corr.timeWindow}</span>
+                        <span className="font-bold text-indigo-400">
+                          {corr.eventId} · {corr.topicId}
+                        </span>
+                        <span className="text-slate-400 text-[10px]">
+                          {formatWib(corr.window.from)} – {formatWib(corr.window.to)}
+                        </span>
                       </div>
                       <p className="text-slate-200 text-[11px] leading-relaxed mb-1.5">
-                        {corr.rationale}
+                        {corr.rationale.join(" ")}
                       </p>
                       <Link
                         href={`/kejadian/${corr.eventId}`}

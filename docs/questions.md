@@ -91,3 +91,11 @@ A defense audience may expect the word "disinformasi", but ADR-007 says the syst
 ## Update 2026-11-19
 
 Decided while building spec 001: D1 the resolve rule (requires `field_confirmation`) applies to every event (FIX-010); D2 the hotspot draft summary states "bukan ancaman" once a field confirmation is linked, replaced later by spec 004. See spec 001 §9.
+
+## Update 2026-11-19 (b) — T218
+
+- **D3:** remove `correlations` / `MultiSourceCorrelation` everywhere. Event detail (analyst and pimpinan), dashboard and tactical map read one computed per-event correlation.
+- **D4:** a `field_report` or a `field_confirmation` satisfies the internal field source (SRC-INT). This also changes `getCorrelationWorkspace`.
+- **ASSUMPTION (Q10):** posted-from location never changes the status. It is shown as a computed count (`locatedContent` / `totalContent`) and a rationale sentence. Status depends on missing sources only (FR-210).
+- **ASSUMPTION:** an event's correlations are the topics with at least one post mentioning the event's area in the window (same area + time), using `state.demoPreset.window`. An event observed outside the window has no correlation.
+- **ASSUMPTION:** `fixtureVersion` stays 3. An old saved state that still holds a `correlations` key is harmless, because nothing reads it any more.

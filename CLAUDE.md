@@ -122,7 +122,7 @@ Details and evidence: `docs/project_state.md`.
 - README/RUNBOOK sidebar tables and the "DB-driven sidebar" claim are wrong
   (`getDynamicSidebarNavigation` is never called; sidebar is hard-coded in `geosint-shell.tsx`).
 - Fixture inconsistencies: NC-01..10 have 10 distinct handles but aggregate says 3;
-  `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`. **Update 2026-11-19:** counts fixed by fixture v3 (spec 002 T215/T206); CORR-xx `status` / `hasSufficientGeoData` / rationale are still hand-typed until T218.
+  `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`. **Update 2026-11-19:** counts fixed by fixture v3 (spec 002 T215/T206); CORR-xx `status` / `hasSufficientGeoData` / rationale are still hand-typed until T218. **Update 2026-11-19 (c):** CORR-xx removed; correlation computed (T218).
 - `repository.ts:512-522` and `types.ts:192` apply a misread "RAB 10 akun" threshold (ADR-006).
   Spec 002 removes it. **Update 2026-11-19:** removed from repository and types (spec 002 T203); UI labels remain until T209–T212.
 - `tests/unit/geosint.test.ts` describe label says "01 s/d 10" (there are 15);

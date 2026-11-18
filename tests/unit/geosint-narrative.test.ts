@@ -4,6 +4,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { GeosintRepository } from "@/features/geosint/repository";
 import { INITIAL_FIXTURE } from "@/features/geosint/fixtures";
 import {
+  MISSING_FIELD_SOURCE,
+  MISSING_SCENE_SOURCE,
+  computeEventCorrelations,
   buildNarrativeClusterViews,
   buildNarrativeWorkspace,
   computeAccountStops,
@@ -461,5 +464,186 @@ describe("Spec 002 narrative / actor correlation (NAC-01..18)", () => {
     });
     expect(backward.clusters).toEqual(forward.clusters);
     expect(backward.areas).toEqual(forward.areas);
+  });
+});
+
+describe("Spec 002 T218 — computed event correlation (NAC-19..NAC-23)", () => {
+  let repo: GeosintRepository;
+
+  beforeEach(() => {
+    repo = new GeosintRepository(INITIAL_FIXTURE);
+  });
+
+  const eventOf = (id: string): GeoEvent => {
+    const event = INITIAL_FIXTURE.events.find((e) => e.id === id);
+    if (!event) throw new Error(`fixture event ${id} missing`);
+    return event;
+  };
+
+  const inputFor = (id: string, window: TimeWindow = P48) => ({
+    event: eventOf(id),
+    window,
+    evidence: INITIAL_FIXTURE.evidence,
+    scenes: INITIAL_FIXTURE.scenes,
+    items: INITIAL_FIXTURE.narrativeItems,
+  });
+
+  it("NAC-19: G-101 correlates TOP-01 as a candidate with scene E-02 and field E-03", () => {
+    const result = computeEventCorrelations(inputFor("G-101"));
+    expect(result).toHaveLength(1);
+    const corr = result[0];
+    expect(corr.topicId).toBe("TOP-01");
+    expect(corr.status).toBe("candidate");
+    // E-01 / SC-01 is captured before the P48 window, so only E-02 counts
+    expect(corr.sceneEvidenceIds).toEqual(["E-02"]);
+    expect(corr.fieldEvidenceIds).toEqual(["E-03"]);
+    // NC-01..NC-10 mention AOI-01, 10 distinct handles
+    expect(corr.totalContent).toBe(10);
+    expect(corr.distinctAccounts).toBe(10);
+    expect(corr.missingSources).toEqual([]);
+    // located count computed from the fixture items NC-01..NC-10
+    const located = INITIAL_FIXTURE.narrativeItems.filter(
+      (i) => /^NC-(0[1-9]|10)$/.test(i.id) && i.publishedAoiId !== null
+    ).length;
+    expect(corr.locatedContent).toBe(located);
+    expect(corr.rationale).toContain("10 konten topik TOP-01 menyebut AOI-01, dari 10 akun unik.");
+  });
+
+  it("NAC-20: G-102 lacks scene and field on the seed and loses only the field gap after B-103", () => {
+    const seed = computeEventCorrelations(inputFor("G-102"));
+    expect(seed.map((c) => c.topicId)).toEqual(["TOP-02", "TOP-01"]);
+    const top02 = seed[0];
+    expect(top02.totalContent).toBe(6);
+    expect(top02.distinctAccounts).toBe(4);
+    expect(top02.locatedContent).toBe(0);
+    expect(top02.status).toBe("insufficient_evidence");
+    expect(top02.missingSources).toEqual([MISSING_SCENE_SOURCE, MISSING_FIELD_SOURCE]);
+    expect(top02.rationale).toContain("6 dari 6 konten tanpa lokasi unggahan.");
+
+    // B-103 links E-08 (field_confirmation) to G-102; D4: it counts as field evidence
+    repo.simulateImport("operator", INITIAL_FIXTURE.demoActions.sagaraImport);
+    const detail = repo.getEvent("analis", "G-102");
+    expect(detail.success).toBe(true);
+    if (detail.success) {
+      const after = detail.data.eventCorrelations[0];
+      expect(after.fieldEvidenceIds).toEqual(["E-08"]);
+      expect(after.missingSources).toEqual([MISSING_SCENE_SOURCE]);
+      expect(after.rationale).toContain("Laporan lapangan: E-08.");
+    }
+
+    const workspace = repo.getCorrelationWorkspace("analis", "AOI-02", P48, "TOP-02");
+    expect(workspace.success).toBe(true);
+    if (workspace.success) {
+      const g102 = workspace.data.candidateCorrelations.find((c) => c.eventId === "G-102");
+      expect(g102?.missingSources).toEqual([MISSING_SCENE_SOURCE]);
+    }
+  });
+
+  it("NAC-21: G-103 correlates TOP-03 only, is empty outside the window and is order-independent", () => {
+    const result = computeEventCorrelations(inputFor("G-103"));
+    expect(result.map((c) => c.topicId)).toEqual(["TOP-03"]);
+    // NL-01..NL-12: 12 posts from 4 accounts
+    expect(result[0].totalContent).toBe(12);
+    expect(result[0].distinctAccounts).toBe(4);
+    expect(result[0].sceneEvidenceIds).toEqual(["E-05"]);
+    expect(result[0].missingSources).toEqual([MISSING_FIELD_SOURCE]);
+
+    // a window ending before G-103 is observed gives no correlation
+    const early = { from: P48.from, to: "2026-11-16T00:00:00+07:00" };
+    expect(computeEventCorrelations(inputFor("G-103", early))).toEqual([]);
+
+    const reversed = computeEventCorrelations({
+      ...inputFor("G-103"),
+      items: [...INITIAL_FIXTURE.narrativeItems].reverse(),
+      evidence: [...INITIAL_FIXTURE.evidence].reverse(),
+    });
+    expect(reversed).toEqual(result);
+
+    // two field confirmations: B-101 adds E-06 to G-101 (E-03 + E-06, both inside P48)
+    const { evidence: imported } = INITIAL_FIXTURE.demoActions.validImport;
+    expect(imported.eventId).toBe("G-101");
+    expect(imported.kind).toBe("field_confirmation");
+    const twoFieldInput = {
+      ...inputFor("G-101"),
+      event: { ...eventOf("G-101"), evidenceIds: [...eventOf("G-101").evidenceIds, imported.id] },
+      evidence: [...INITIAL_FIXTURE.evidence, imported],
+    };
+    const normal = computeEventCorrelations(twoFieldInput);
+    const flipped = computeEventCorrelations({
+      ...twoFieldInput,
+      evidence: [...twoFieldInput.evidence].reverse(),
+    });
+    expect(normal[0].fieldEvidenceIds).toEqual(["E-03", "E-06"]);
+    expect(flipped[0].fieldEvidenceIds).toEqual(["E-03", "E-06"]);
+    expect(flipped).toEqual(normal);
+  });
+
+  it("NAC-22: projections match the computation, hide ids and handles, and CORR-xx is gone", () => {
+    const analyst = repo.getEvent("analis", "G-101");
+    expect(analyst.success).toBe(true);
+    if (analyst.success) {
+      expect(analyst.data.eventCorrelations).toEqual(computeEventCorrelations(inputFor("G-101")));
+      expect("multiSourceCorrelations" in analyst.data).toBe(false);
+      expect(analyst.data.eventCorrelations[0].rationale).toContain("Citra dalam periode: E-02.");
+    }
+
+    // summaries show counts, never evidence ids, even inside the rationale
+    const leader101 = repo.getEvent("pimpinan", "G-101");
+    expect(leader101.success).toBe(true);
+    if (leader101.success) {
+      const { correlations } = leader101.data;
+      expect(correlations[0].rationale).toContain("1 citra dalam periode.");
+      expect(correlations[0].rationale).toContain("1 laporan lapangan.");
+      expect(JSON.stringify(correlations)).not.toMatch(/E-\d/);
+    }
+
+    const leaderArea = repo.getAreaCorrelations("pimpinan", "AOI-01");
+    expect(leaderArea.success).toBe(true);
+    if (leaderArea.success) {
+      expect(JSON.stringify(leaderArea.correlations)).not.toMatch(/E-\d/);
+    }
+
+    const pimpinan = repo.getEvent("pimpinan", "G-102");
+    expect(pimpinan.success).toBe(true);
+    if (pimpinan.success) {
+      expect(pimpinan.data.correlations.length).toBeGreaterThan(0);
+      for (const c of pimpinan.data.correlations) {
+        expect("sceneEvidenceIds" in c).toBe(false);
+        expect("fieldEvidenceIds" in c).toBe(false);
+        expect("narrativeItemIds" in c).toBe(false);
+      }
+      expect(JSON.stringify(pimpinan.data)).not.toMatch(/@/);
+    }
+
+    expect("correlations" in INITIAL_FIXTURE).toBe(false);
+    const source = readFileSync(
+      path.join(process.cwd(), "src/features/geosint", "fixtures.ts"),
+      "utf8"
+    );
+    expect(source).not.toMatch(/CORR-/);
+  });
+
+  it("NAC-23: getAreaCorrelations returns summaries for analis and pimpinan and rejects operator and unknown areas", () => {
+    const analyst = repo.getAreaCorrelations("analis", "AOI-02");
+    expect(analyst.success).toBe(true);
+    if (analyst.success) {
+      expect(analyst.correlations.map((c) => `${c.eventId}/${c.topicId}`)).toEqual([
+        "G-102/TOP-02",
+        "G-102/TOP-01",
+      ]);
+      for (const c of analyst.correlations) {
+        expect("narrativeItemIds" in c).toBe(false);
+      }
+    }
+
+    expect(repo.getAreaCorrelations("pimpinan", "AOI-01").success).toBe(true);
+
+    const operator = repo.getAreaCorrelations("operator", "AOI-01");
+    expect(operator.success).toBe(false);
+    if (!operator.success) expect(operator.code).toBe("FORBIDDEN");
+
+    const unknown = repo.getAreaCorrelations("analis", "AOI-99");
+    expect(unknown.success).toBe(false);
+    if (!unknown.success) expect(unknown.code).toBe("NOT_FOUND");
   });
 });

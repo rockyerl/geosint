@@ -36,7 +36,7 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 - [x] T215 Fixture v3: TOP-02, TOP-03, `claimsEventKind`; N-201..N-206, NC-12, NC-13, NL-01..NL-12 exactly as spec §8.2 (replaces T205) Built 2026-11-19, not verified
 - [x] T216 `getAccountProfile` stops in time order (FR-214); tests NAC-12, NAC-13 Built 2026-11-19, not verified (NAC-12 already present; NAC-13 added)
 - [x] T217 Route `/narasi` (analyst, `RoleGuard`) with concentration map, clusters, actors, timeline (FR-212..214); test NAC-14 Built 2026-11-19, not verified
-- [ ] T218 Event detail stops reading hand-typed `NAR-xx` / `CORR-xx`; links to `/narasi` instead
+- [x] T218 Event detail stops reading hand-typed `NAR-xx` / `CORR-xx`; links to `/narasi` instead Built 2026-11-19, not verified
 
 ## Update 2026-11-19
 
@@ -46,3 +46,8 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 - `narrativeClusters` became text-only `narrativeThemes`; screens use the computed `buildNarrativeClusterViews` (NAC-18).
 - No Nila theme until spec 005 adds the verification label.
 - T218 must also compute or remove CORR-xx `status` / `hasSufficientGeoData` and the rationale facts (CORR-02 'no field report' is false after B-103).
+
+## Update 2026-11-19 (b)
+
+- CORR-xx and `MultiSourceCorrelation` are removed. Event detail, dashboard and tactical map read `computeEventCorrelations` / `getAreaCorrelations`.
+- A field confirmation counts as field evidence, like a field report (D4); this also changes `getCorrelationWorkspace`.

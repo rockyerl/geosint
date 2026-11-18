@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 export function GeosintDashboard() {
-  const { role, state, kpis, setFilter, clearFilter } = useGeosint();
+  const { role, state, repo, kpis, setFilter, clearFilter } = useGeosint();
   const router = useRouter();
 
   // Active temporal window state for demo
@@ -54,11 +54,9 @@ export function GeosintDashboard() {
   ).filter((n) => n.targetAoiId === selectedDashboardAoi);
   const activeCluster = narrativeClusters[0];
 
-  // Correlation for selected sector
-  const sectorCorrelations = (state.correlations || []).filter(
-    (c) => c.aoiId === selectedDashboardAoi
-  );
-  const activeCorr = sectorCorrelations[0];
+  // Computed correlation for the selected sector (spec 002 T218)
+  const areaCorrelations = repo.getAreaCorrelations(role, selectedDashboardAoi);
+  const activeCorr = areaCorrelations.success ? areaCorrelations.correlations[0] : undefined;
 
   const handleWindowChange = (hours: number) => {
     setActiveWindowHours(hours);
@@ -355,10 +353,14 @@ export function GeosintDashboard() {
                   <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs">
                     <div className="flex items-center gap-2 font-mono text-indigo-400 font-bold mb-1">
                       <Link2 className="w-4 h-4" />
-                      <span>Korelasi 3-Pilar: {activeCorr.title}</span>
+                      <span>
+                        Korelasi Wilayah–Waktu: {activeCorr.eventId} ·{" "}
+                        {state.topics.find((t) => t.id === activeCorr.topicId)?.label ??
+                          activeCorr.topicId}
+                      </span>
                     </div>
                     <p className="text-slate-300 text-[11px] leading-relaxed mb-2">
-                      {activeCorr.rationale}
+                      {activeCorr.rationale.join(" ")}
                     </p>
                     <Link
                       href={`/kejadian/${activeCorr.eventId}`}

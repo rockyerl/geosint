@@ -177,6 +177,8 @@ as written; where a verdict changed, this section wins.
 | **New:** threat from narratives without support | DS-5, spec 005, ADR-007                               |
 | Still open: F8 stale source lowers confidence   | Not in the scenario set; candidate for a later spec   |
 
+**Update 2026-11-19 (T218):** C4–C8 resolved: CORR-xx removed; correlation status, missing sources and rationale are computed (analysis.ts).
+
 ### New gaps (details in `scenarios.md` §11)
 
 - Orphan evidence: a batch whose `eventId` does not exist is accepted (spec 001 FIX-006, G-DEMO-17). **Update 2026-11-19:** fixed by FIX-006 (built, not verified)

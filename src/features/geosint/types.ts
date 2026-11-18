@@ -100,6 +100,34 @@ export interface CorrelationFinding {
   missingSources: string[];
 }
 
+/** Same-area-and-time correlation of one event with one topic; every field computed (spec 002 T218, ADR-005). */
+export interface EventCorrelation {
+  eventId: string;
+  aoiId: string;
+  topicId: string;
+  window: TimeWindow;
+  status: CorrelationFinding["status"];
+  /** Linked scene evidence whose scene is in the event's area and captured in the window. */
+  sceneEvidenceIds: string[];
+  /** Linked field_report or field_confirmation evidence (D4). */
+  fieldEvidenceIds: string[];
+  /** Topic posts mentioning the area in the window, time order. */
+  narrativeItemIds: string[];
+  totalContent: number;
+  distinctAccounts: number;
+  /** Posts with a posted-from area (publishedAoiId !== null); coverage only, never changes status (Q10). */
+  locatedContent: number;
+  missingSources: string[];
+  /** Computed fact sentences (Indonesian). */
+  rationale: string[];
+}
+
+/** EventCorrelation for pimpinan, dashboard and map: counts only, no evidence or post ids (not even in rationale). */
+export type CorrelationSummary = Omit<
+  EventCorrelation,
+  "sceneEvidenceIds" | "fieldEvidenceIds" | "narrativeItemIds"
+>;
+
 export interface Review {
   id: string;
   eventId: string;
@@ -204,21 +232,6 @@ export interface NarrativeCluster {
   hasSufficientGeoMetadata: boolean;
   volumeTrend: NarrativeTrendPoint[];
   items: NarrativeItem[];
-}
-
-export interface MultiSourceCorrelation {
-  id: string;
-  eventId: string;
-  aoiId: string;
-  title: string;
-  timeWindow: string; // misal "Rentang 48 Jam"
-  status: "verified" | "investigating" | "data_insufficient";
-  rationale: string; // Dasar keterkaitan wilayah-waktu
-  satelliteEvidenceId: string;
-  fieldReportEvidenceId: string;
-  narrativeClusterId: string;
-  hasSufficientGeoData: boolean;
-  limitationNote?: string;
 }
 
 export interface CorrelationTrendBucket {
@@ -328,7 +341,6 @@ export interface DemoState {
   narrativeItems: NarrativeItem[];
   demoPreset: DemoPreset;
   narrativeThemes: NarrativeTheme[];
-  correlations: MultiSourceCorrelation[];
   demoActions: DemoActions;
   reviews: Review[];
   briefings: Briefing[];
@@ -374,7 +386,7 @@ export interface PimpinanEventDetail {
   latestApprovedBriefing?: Briefing;
   isBriefingStale: boolean;
   briefingsCount: number;
-  correlations: MultiSourceCorrelation[];
+  correlations: CorrelationSummary[];
   narrativeSummary?: string;
 }
 
@@ -388,7 +400,7 @@ export interface AnalystEventDetail {
   latestApprovedBriefing?: Briefing;
   isBriefingStale: boolean;
   correlations: Evidence[];
-  multiSourceCorrelations: MultiSourceCorrelation[];
+  eventCorrelations: EventCorrelation[];
   narrativeClusters: NarrativeCluster[];
   draftSummary: { findings: string; limitations: string; nextAction: string };
   /** True while the event is unresolved and has no linked field_confirmation (resolve rule, FIX-010). */

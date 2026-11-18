@@ -20,7 +20,8 @@ import {
   Point,
   PimpinanEventDetail,
   AnalystEventDetail,
-  MultiSourceCorrelation,
+  CorrelationSummary,
+  EventCorrelation,
   NarrativeCluster,
   NarrativeItem,
   TimeWindow,
@@ -36,9 +37,12 @@ import {
   clusterId,
   computeAccountProfile,
   computeActorLinks,
+  computeEventCorrelation,
+  computeEventCorrelations,
   computeNarrativeClusters,
   computeTrendBuckets,
   isValidWindow,
+  toCorrelationSummary,
 } from "./analysis";
 
 export function getSourceFreshness(source: Source, demoNow: string): SourceFreshness {
@@ -380,7 +384,6 @@ export class GeosintRepository {
 
     if (role === "pimpinan") {
       // Pimpinan view: concise executive projection, NO raw internal notes, NO raw unapproved drafts
-      const corr = (this.state.correlations || []).filter((c) => c.eventId === eventId);
       const narrative = this.getNarrativeClusters(event.aoiId)[0];
 
       return {
@@ -399,7 +402,7 @@ export class GeosintRepository {
           latestApprovedBriefing,
           isBriefingStale: !!isBriefingStale,
           briefingsCount: briefings.length,
-          correlations: corr,
+          correlations: this.eventCorrelations(event).map(toCorrelationSummary),
           narrativeSummary: narrative
             ? `${narrative.theme} (${narrative.totalContent} konten terbuka)`
             : undefined,
@@ -413,7 +416,6 @@ export class GeosintRepository {
     const scenes = this.state.scenes.filter((s) => sceneIds.includes(s.id));
     const reviews = this.state.reviews.filter((r) => r.eventId === eventId);
     const correlations = getCorrelations(eventId, this.state);
-    const multiCorrs = (this.state.correlations || []).filter((c) => c.eventId === eventId);
     const narratives = this.getNarrativeClusters(event.aoiId);
     const draftSummary = generateDraftSummary(event, evidence, area);
     const missingFieldConfirmation = event.status !== "resolved" && !hasFieldConfirmation(evidence);
@@ -431,7 +433,7 @@ export class GeosintRepository {
         latestApprovedBriefing,
         isBriefingStale: !!isBriefingStale,
         correlations,
-        multiSourceCorrelations: multiCorrs,
+        eventCorrelations: this.eventCorrelations(event),
         narrativeClusters: narratives,
         draftSummary,
         missingFieldConfirmation,
@@ -583,29 +585,24 @@ export class GeosintRepository {
     const candidateCorrelations: CorrelationFinding[] = [];
     for (const ev of eventsInPeriod) {
       const activeEvidence = this.state.evidence.filter((e) => ev.evidenceIds.includes(e.id));
-      const hasSceneInPeriod = activeEvidence.some(
-        (e) => e.kind === "scene" && scenesInPeriod.some((sc) => sc.id === e.sceneId)
-      );
-      const hasFieldReport = activeEvidence.some((e) => e.kind === "field_report");
-      const hasNarrative = narrativeItemsInWindow.length > 0;
-
-      const missingSources: string[] = [];
-      if (!hasSceneInPeriod) missingSources.push("SRC-SAT (Citra dalam periode)");
-      if (!hasFieldReport) missingSources.push("SRC-INT (Laporan lapangan internal)");
-      if (!hasNarrative) missingSources.push("SRC-GDELT (Narasi terbuka terfilter)");
-
-      const isCandidate = hasSceneInPeriod && hasFieldReport && hasNarrative;
-
+      const computed = computeEventCorrelation({
+        event: ev,
+        topicId,
+        window,
+        evidence: this.state.evidence,
+        scenes: this.state.scenes,
+        items: this.state.narrativeItems,
+      });
       candidateCorrelations.push({
         eventId: ev.id,
         aoiId,
         window,
         topicId,
         basis: "same_area_and_time",
-        status: isCandidate ? "candidate" : "insufficient_evidence",
+        status: computed.status,
         evidenceIds: activeEvidence.map((e) => e.id),
-        narrativeItemIds: narrativeItemsInWindow.map((n) => n.id),
-        missingSources,
+        narrativeItemIds: computed.narrativeItemIds,
+        missingSources: computed.missingSources,
       });
     }
 
@@ -627,6 +624,25 @@ export class GeosintRepository {
         distinctAccounts: narrativeCluster?.distinctAccounts ?? 0,
       },
     };
+  }
+
+  /** Computed correlations of every event in an area, without evidence or post ids (spec 002 T218). */
+  public getAreaCorrelations(
+    role: Role,
+    aoiId: string
+  ):
+    | { success: true; correlations: CorrelationSummary[] }
+    | { success: false; code: "FORBIDDEN" | "NOT_FOUND"; error: string } {
+    if (role === "operator") {
+      return { success: false, code: "FORBIDDEN", error: "Operator tidak memiliki akses korelasi" };
+    }
+    if (!this.state.areas.some((a) => a.id === aoiId)) {
+      return { success: false, code: "NOT_FOUND", error: `Area pantauan ${aoiId} tidak ditemukan` };
+    }
+    const correlations = this.state.events
+      .filter((e) => e.aoiId === aoiId)
+      .flatMap((e) => this.eventCorrelations(e).map(toCorrelationSummary));
+    return { success: true, correlations };
   }
 
   /** Accounts and the areas/events they link in a window; analyst only (spec 002 FR-205, FR-207). */
@@ -1106,8 +1122,14 @@ export class GeosintRepository {
     };
   }
 
-  public getMultiSourceCorrelations(eventId: string): MultiSourceCorrelation[] {
-    return (this.state.correlations || []).filter((c) => c.eventId === eventId);
+  private eventCorrelations(event: GeoEvent): EventCorrelation[] {
+    return computeEventCorrelations({
+      event,
+      window: this.state.demoPreset.window,
+      evidence: this.state.evidence,
+      scenes: this.state.scenes,
+      items: this.state.narrativeItems,
+    });
   }
 
   public getNarrativeClusters(aoiId?: string): NarrativeCluster[] {

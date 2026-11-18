@@ -615,38 +615,6 @@ export const INITIAL_FIXTURE: DemoState = {
       targetAoiId: "AOI-02",
     },
   ],
-  correlations: [
-    {
-      id: "CORR-01",
-      eventId: "G-101",
-      aoiId: "AOI-01",
-      title: "Triangulasi Genangan Sektor Aruna: Citra Radar SAR + Laporan Akses + Narasi Terputus",
-      timeWindow: "Rentang 48 Jam (15 Nov 09:00 s/d 17 Nov 09:00 WIB)",
-      status: "investigating",
-      rationale:
-        "Citra radar SAR (SC-02) menunjukkan hamburan balik genangan air di alur sungai. Laporan internal (E-03) mencatat akses jalan dialihkan. Klaster narasi TOP-01 yang menyebut Aruna meningkat pada periode 24 jam kedua (jumlah dihitung dari konten). Seluruh bukti bersesuaian pada Sektor AOI-01 dalam rentang waktu yang sama.",
-      satelliteEvidenceId: "E-02",
-      fieldReportEvidenceId: "E-03",
-      narrativeClusterId: "NAR-01",
-      hasSufficientGeoData: true,
-    },
-    {
-      id: "CORR-02",
-      eventId: "G-102",
-      aoiId: "AOI-02",
-      title: "Korelasi Titik Panas FIRMS vs Narasi Asap Bukit Sagara (Data Lokasi Belum Cukup)",
-      timeWindow: "Rentang 48 Jam (15 Nov 09:00 s/d 17 Nov 09:00 WIB)",
-      status: "data_insufficient",
-      rationale:
-        "Sensor FIRMS mendeteksi titik panas dan narasi kepulan asap muncul untuk area yang sama. Konten narasi tidak memiliki lokasi unggahan, dan kejadian G-102 belum memiliki laporan lapangan.",
-      satelliteEvidenceId: "E-04",
-      fieldReportEvidenceId: "E-04",
-      narrativeClusterId: "NAR-02",
-      hasSufficientGeoData: false,
-      limitationNote:
-        "Lokasi unggahan tidak tersedia pada konten terbuka; laporan lapangan untuk G-102 belum ada.",
-    },
-  ],
   demoActions: {
     arunaFloodOutline: [
       [13, 63],

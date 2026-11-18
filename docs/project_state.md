@@ -229,3 +229,10 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 
 - DS-2 steps 2.1, 2.2, 2.4 and 2.5 are on screen with computed data: concentration map, ranked clusters with the posts behind them, cross-event actors, and account movement (T217). Built, not verified.
 - DS-2.3 (verification status) waits for spec 005. The event detail (hand-typed CORR data) waits for T218.
+
+## 17. Update 2026-11-19 — computed event correlation (T218)
+
+- CORR-xx and `MultiSourceCorrelation` are removed. Status, missing sources and rationale are computed in `analysis.ts` (`computeEventCorrelations`); event detail, dashboard and tactical map read them. Built, not verified.
+- Posted-from location is shown as a count only; it never changes the status.
+- G-102 after B-103 still lacks a scene in the window, so it stays "insufficient".
+- This supersedes the §14 bullet on hand-typed CORR, and also the CORR-xx descriptions at lines 47–50 and the table rows at lines 82–84.

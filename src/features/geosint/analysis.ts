@@ -4,12 +4,16 @@ import type {
   ActorLink,
   Area,
   ComputedCluster,
+  CorrelationSummary,
   CorrelationTrendBucket,
+  EventCorrelation,
+  Evidence,
   GeoEvent,
   NarrativeCluster,
   NarrativeItem,
   NarrativeTheme,
   NarrativeWorkspaceData,
+  Scene,
   TimeWindow,
   Topic,
 } from "./types";
@@ -281,5 +285,127 @@ export function buildNarrativeWorkspace(input: {
     }),
     unlocated: all.find((c) => c.id === clusterId(topic.id, null)) ?? null,
     crossEventActors: computeActorLinks(items, events, window).filter((a) => a.isCrossEvent),
+  };
+}
+
+export const MISSING_SCENE_SOURCE = "SRC-SAT (Citra dalam periode)";
+export const MISSING_FIELD_SOURCE = "SRC-INT (Laporan lapangan internal)";
+export const MISSING_NARRATIVE_SOURCE = "SRC-GDELT (Narasi terbuka terfilter)";
+
+interface EventCorrelationInput {
+  event: GeoEvent;
+  window: TimeWindow;
+  evidence: Evidence[];
+  scenes: Scene[];
+  items: NarrativeItem[];
+}
+
+/** One event against one topic, same area and window (spec 002 T218; D4: field_report or field_confirmation). */
+export function computeEventCorrelation(
+  input: EventCorrelationInput & { topicId: string }
+): EventCorrelation {
+  const { event, topicId, window } = input;
+  const linked = event.evidenceIds
+    .map((id) => input.evidence.find((e) => e.id === id))
+    .filter((e): e is Evidence => e !== undefined);
+  const scenesInWindow = new Set(
+    input.scenes
+      .filter((s) => s.aoiId === event.aoiId && isInWindow(s.capturedAt, window))
+      .map((s) => s.id)
+  );
+  const sceneEvidenceIds = linked
+    .filter((e) => e.kind === "scene" && e.sceneId !== undefined && scenesInWindow.has(e.sceneId))
+    .map((e) => e.id);
+  const fieldEvidenceIds = linked
+    .filter((e) => e.kind === "field_report" || e.kind === "field_confirmation")
+    .map((e) => e.id);
+  const cluster =
+    computeNarrativeClusters(input.items, window).find(
+      (c) => c.id === clusterId(topicId, event.aoiId)
+    ) ?? null;
+  const narrativeItemIds = cluster?.itemIds ?? [];
+  const totalContent = narrativeItemIds.length;
+  const distinctAccounts = cluster?.distinctAccounts ?? 0;
+  const locatedContent = input.items.filter(
+    (i) => narrativeItemIds.includes(i.id) && i.publishedAoiId !== null
+  ).length;
+
+  const missingSources: string[] = [];
+  if (sceneEvidenceIds.length === 0) missingSources.push(MISSING_SCENE_SOURCE);
+  if (fieldEvidenceIds.length === 0) missingSources.push(MISSING_FIELD_SOURCE);
+  if (totalContent === 0) missingSources.push(MISSING_NARRATIVE_SOURCE);
+
+  const rationale = [
+    sceneEvidenceIds.length > 0
+      ? `Citra dalam periode: ${sceneEvidenceIds.join(", ")}.`
+      : "Belum ada citra dalam periode.",
+    fieldEvidenceIds.length > 0
+      ? `Laporan lapangan: ${fieldEvidenceIds.join(", ")}.`
+      : "Belum ada laporan lapangan.",
+    totalContent > 0
+      ? `${totalContent} konten topik ${topicId} menyebut ${event.aoiId}, dari ${distinctAccounts} akun unik.`
+      : `Tidak ada konten topik ${topicId} yang menyebut ${event.aoiId}.`,
+  ];
+  if (totalContent > 0) {
+    rationale.push(
+      `${totalContent - locatedContent} dari ${totalContent} konten tanpa lokasi unggahan.`
+    );
+  }
+
+  return {
+    eventId: event.id,
+    aoiId: event.aoiId,
+    topicId,
+    window,
+    status: missingSources.length === 0 ? "candidate" : "insufficient_evidence",
+    sceneEvidenceIds,
+    fieldEvidenceIds,
+    narrativeItemIds,
+    totalContent,
+    distinctAccounts,
+    locatedContent,
+    missingSources,
+    rationale,
+  };
+}
+
+/**
+ * Every topic with posts mentioning the event's area in the window, most posts first, then topicId.
+ * Empty when the event is observed outside the window.
+ */
+export function computeEventCorrelations(input: EventCorrelationInput): EventCorrelation[] {
+  const { event, window } = input;
+  if (!isInWindow(event.observedAt, window)) return [];
+  const topicIds = sortedUnique(
+    input.items
+      .filter((i) => i.mentionedAoiId === event.aoiId && isInWindow(i.publishedAt, window))
+      .map((i) => i.topicId)
+  );
+  return topicIds
+    .map((topicId) => computeEventCorrelation({ ...input, topicId }))
+    .sort((a, b) => b.totalContent - a.totalContent || compareText(a.topicId, b.topicId));
+}
+
+export function toCorrelationSummary(c: EventCorrelation): CorrelationSummary {
+  return {
+    eventId: c.eventId,
+    aoiId: c.aoiId,
+    topicId: c.topicId,
+    window: c.window,
+    status: c.status,
+    totalContent: c.totalContent,
+    distinctAccounts: c.distinctAccounts,
+    locatedContent: c.locatedContent,
+    missingSources: c.missingSources,
+    // Counts only: pimpinan-facing text must not leak evidence ids (FR-2xx role projection).
+    rationale: [
+      c.sceneEvidenceIds.length > 0
+        ? `${c.sceneEvidenceIds.length} citra dalam periode.`
+        : "Belum ada citra dalam periode.",
+      c.fieldEvidenceIds.length > 0
+        ? `${c.fieldEvidenceIds.length} laporan lapangan.`
+        : "Belum ada laporan lapangan.",
+      ...c.rationale.slice(2),
+    ],
   };
 }

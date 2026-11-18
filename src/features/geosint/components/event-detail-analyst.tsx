@@ -25,7 +25,7 @@ interface EventDetailAnalystProps {
 }
 
 export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
-  const { repo, reviewEvent, publishBriefing, showToast } = useGeosint();
+  const { repo, state, reviewEvent, publishBriefing, showToast } = useGeosint();
   const router = useRouter();
 
   const eventResult = repo.getEvent("analis", eventId);
@@ -68,7 +68,7 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
     reviews,
     latestApprovedBriefing,
     isBriefingStale,
-    multiSourceCorrelations,
+    eventCorrelations,
     narrativeClusters,
     draftSummary,
     missingFieldConfirmation,
@@ -299,9 +299,9 @@ export function EventDetailAnalyst({ eventId }: EventDetailAnalystProps) {
 
           {/* P0: Multi-Source Triangulated Correlation Matrix (GEO-19) */}
           <CorrelationMatrix
-            correlations={multiSourceCorrelations}
+            correlations={eventCorrelations}
             evidenceList={evidence}
-            narrativeClusters={narrativeClusters}
+            topics={state.topics}
             onOpenRadar={
               area.id === "AOI-01" ? () => router.push(`/peta/${area.id}/bandingkan`) : undefined
             }

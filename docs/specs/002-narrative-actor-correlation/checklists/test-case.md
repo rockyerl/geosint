@@ -72,3 +72,21 @@ Changes to rows above (rows kept as written; these notes win):
   4. "Lihat pergerakan" on `@radar_lintas` shows Bukit Sagara 16 Nov 09:40 (G-102) → Dataran Nila 18:00–20:00 (G-103) → Sektor Sungai Aruna 21:30 (G-101).
   5. Switching to TOP-03 shows Nila 4 accounts / 12 posts; `?window=7d` survives a reload.
   6. As pimpinan the nav item is hidden; switching role to pimpinan on `/narasi` goes to `/dashboard`; breadcrumb reads "Konsentrasi Narasi & Aktor".
+
+### Update 2026-11-19 (e) — computed event correlation (T218)
+
+| ID     | Case                                                                                                                                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NAC-19 | G-101 on the seed: one correlation, TOP-01, `candidate`, scene `["E-02"]`, field `["E-03"]`, 10 posts, 10 accounts, no missing source; located count computed from fixture items; rationale has "10 konten topik TOP-01 menyebut AOI-01, dari 10 akun unik."             |
+| NAC-20 | G-102 on the seed: topics `["TOP-02", "TOP-01"]`; TOP-02 6 posts, 4 accounts, 0 located, `insufficient_evidence`, missing SRC-SAT and SRC-INT. After the B-103 import: field `["E-08"]`, only SRC-SAT missing. `getCorrelationWorkspace` G-102 also misses only SRC-SAT (D4) |
+| NAC-21 | G-103: `["TOP-03"]`, 12 posts, 4 accounts, scene `["E-05"]`, missing SRC-INT only. A window ending before G-103 gives `[]`. Deterministic for reversed inputs                                                                                                              |
+| NAC-22 | Analyst `eventCorrelations` equals `computeEventCorrelations`, no `multiSourceCorrelations` key. Pimpinan entries carry no evidence or post ids and no handles. `INITIAL_FIXTURE` has no `correlations`; `fixtures.ts` has no `CORR-`                                       |
+| NAC-23 | `getAreaCorrelations`: analis AOI-02 gives G-102/TOP-02 then G-102/TOP-01 without `narrativeItemIds`; pimpinan AOI-01 succeeds; operator `FORBIDDEN`; AOI-99 `NOT_FOUND`                                                                                                  |
+
+- Note (fix round): NAC-22 also covers pimpinan G-101 and `getAreaCorrelations` (no `E-` ids even in the rationale; summaries show counts such as "1 citra dalam periode."). NAC-21 adds a two-element (E-03, E-06) order-independence case.
+
+- M-206 (manual):
+  1. As analis, G-101 shows `KANDIDAT KORELASI`, E-02 / E-03 pillars and "10 konten · 10 akun unik". "Buka di Konsentrasi Narasi" opens `/narasi?topic=TOP-01&window=48h`.
+  2. G-102 shows tabs TOP-02 / TOP-01 and `BUKTI BELUM LENGKAP`, missing SRC-SAT and SRC-INT. After importing B-103 as operator, only SRC-SAT is missing and the field pillar shows E-08.
+  3. As pimpinan, G-102 shows counts and "Korelasi belum lengkap", with no "RAB" text and no handles.
+  4. The dashboard and the tactical map show the computed rationale with no "CORR-" ids.
