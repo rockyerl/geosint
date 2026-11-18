@@ -39,16 +39,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. If accessing root / -> redirect to /dashboard if logged in, else /login
+  // 2. Allow root / for GEOSINT demonstration portal
   if (pathname === "/") {
-    if (sessionPayload) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.next();
   }
 
-  // 3. Protected /dashboard routes
-  if (pathname.startsWith("/dashboard")) {
+  // 3. Protected admin routes under /dashboard (e.g. /dashboard/users, /dashboard/roles)
+  if (
+    pathname.startsWith("/dashboard/users") ||
+    pathname.startsWith("/dashboard/roles") ||
+    pathname.startsWith("/dashboard/reports")
+  ) {
     if (!sessionPayload) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("from", pathname);

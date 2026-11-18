@@ -605,7 +605,8 @@ async function seed() {
       longitude: 106.7663,
       bedCapacity: 420,
       operationalStatus: "OPERASIONAL",
-      services: "Rehabilitasi Medik Terpadu, Prostetik & Ortotik Militer, IGD 24 Jam, Bedah Orthopedi",
+      services:
+        "Rehabilitasi Medik Terpadu, Prostetik & Ortotik Militer, IGD 24 Jam, Bedah Orthopedi",
       verificationStatus: "APPROVED",
       verificationNote: "Lengkap dan valid.",
       verifiedBy: "Letkol Laut (K) Budi Santoso",
@@ -761,7 +762,8 @@ async function seed() {
       operationalStatus: "RENOVASI",
       services: "IGD, Rawat Inap, Poliklinik Spesialis Dasar, Kesehatan Kepulauan",
       verificationStatus: "NEEDS_REVISION",
-      verificationNote: "Mohon lampirkan berita acara kapasitas TT selama masa renovasi gedung utama.",
+      verificationNote:
+        "Mohon lampirkan berita acara kapasitas TT selama masa renovasi gedung utama.",
       verifiedBy: "Letkol Laut (K) Budi Santoso",
       verifiedAt: now,
       reportingPeriod: "2026-TW4",
