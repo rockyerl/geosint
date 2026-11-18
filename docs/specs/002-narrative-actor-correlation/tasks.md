@@ -4,10 +4,10 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 
 ## Model & logic
 
-- [ ] T201 Add `ComputedCluster` and `ActorLink` types; remove `AccountAggregate` / `accountAggregateStatus` and the RAB comment
-- [ ] T202 Create `analysis.ts`: `computeTrendBuckets` (extracted), `computeNarrativeClusters`, `computeConcentration`, `computeActorLinks`
-- [ ] T203 Wire into `getCorrelationWorkspace`; delete the threshold block (`repository.ts:512-522`)
-- [ ] T204 Repository `getActorLinks`, `getAccountProfile` with analyst-only checks
+- [x] T201 Add `ComputedCluster` and `ActorLink` types; remove `AccountAggregate` / `accountAggregateStatus` and the RAB comment Built 2026-11-19, not verified
+- [x] T202 Create `analysis.ts`: `computeTrendBuckets` (extracted), `computeNarrativeClusters`, `computeConcentration`, `computeActorLinks` Built 2026-11-19, not verified
+- [x] T203 Wire into `getCorrelationWorkspace`; delete the threshold block (`repository.ts:512-522`) Built 2026-11-19, not verified
+- [x] T204 Repository `getActorLinks`, `getAccountProfile` with analyst-only checks Built 2026-11-19, not verified
 
 ## Fixtures
 
@@ -17,7 +17,7 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 ## Tests
 
 - [ ] T207 NAC-01..NAC-11 in `tests/unit/geosint-narrative.test.ts`
-- [ ] T208 Remove G-DEMO-14 (retired, see spec 001); keep G-DEMO-11..13 green
+- [x] T208 Remove G-DEMO-14 (retired, see spec 001); keep G-DEMO-11..13 green Built 2026-11-19, not verified
 
 ## UI
 
@@ -37,3 +37,9 @@ Decisions are recorded (spec §2), so nothing blocks this spec.
 - [ ] T216 `getAccountProfile` stops in time order (FR-214); tests NAC-12, NAC-13
 - [ ] T217 Route `/narasi` (analyst, `RoleGuard`) with concentration map, clusters, actors, timeline (FR-212..214); test NAC-14
 - [ ] T218 Event detail stops reading hand-typed `NAR-xx` / `CORR-xx`; links to `/narasi` instead
+
+## Update 2026-11-19
+
+- `optionalAccountAggregates` was removed with T201 (part of T206).
+- `fixtureVersion` stays 2 until T215.
+- NAC-01 (TOP-02/03 parts), NAC-04, NAC-07, NAC-11..13 are written with T207 after fixture v3.

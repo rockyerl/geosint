@@ -87,13 +87,6 @@ export interface NarrativeItem {
   authorAccount?: string;
 }
 
-export interface AccountAggregate {
-  aoiId: string;
-  window: TimeWindow;
-  distinctAccounts: number;
-  locationCoverage: "available" | "missing";
-}
-
 export interface CorrelationFinding {
   eventId: string;
   aoiId: string;
@@ -196,7 +189,7 @@ export interface NarrativeCluster {
   firstObservedAt: string;
   lastObservedAt: string;
   totalContent: number;
-  uniqueAccountsCount: number; // Ambang batas RAB: minimum 10 akun per wilayah/periode
+  uniqueAccountsCount: number; // Hand-typed fixture value; replaced by computed clusters (spec 002 T206)
   hasSufficientGeoMetadata: boolean;
   volumeTrend: NarrativeTrendPoint[];
   items: NarrativeItem[];
@@ -225,6 +218,36 @@ export interface CorrelationTrendBucket {
   label: string;
 }
 
+/** Narrative cluster computed from raw items: one per (topicId, mentionedAoiId) in a window (spec 002 FR-202). */
+export interface ComputedCluster {
+  id: string; // `${topicId}:${aoiId}` or `${topicId}:unlocated`
+  topicId: string;
+  aoiId: string | null;
+  itemIds: string[]; // time order
+  totalContent: number;
+  distinctAccounts: number;
+  itemsPerAccount: number;
+  firstObservedAt: string;
+  lastObservedAt: string;
+  trendBuckets: CorrelationTrendBucket[];
+  publishLocationCoverage: number; // 0..1, share of items with publishedAoiId
+}
+
+/** One social account and what it links in a window (spec 002 FR-205). */
+export interface ActorLink {
+  account: string;
+  itemIds: string[]; // time order
+  aoiIds: string[]; // sorted, mentioned areas only
+  topicIds: string[]; // sorted
+  eventIds: string[]; // sorted; events in a mentioned area, observed in the window
+  isCrossEvent: boolean; // >= 2 areas or >= 2 events
+}
+
+/** Timeline of one account (spec 002 FR-206). */
+export interface AccountProfile extends ActorLink {
+  items: NarrativeItem[]; // time order
+}
+
 export interface CorrelationWorkspaceData {
   aoi: Area;
   window: TimeWindow;
@@ -237,8 +260,10 @@ export interface CorrelationWorkspaceData {
   narrativeItemsInWindow: NarrativeItem[];
   unlocatedNarrativeItems: NarrativeItem[];
   candidateCorrelations: CorrelationFinding[];
-  accountAggregate?: AccountAggregate;
-  accountAggregateStatus: "below_threshold" | "valid" | "not_available";
+  /** Computed cluster for the selected topic + area in the window (spec 002 FR-201/202); null when no item. */
+  narrativeCluster: ComputedCluster | null;
+  /** Computed distinct authorAccount count for that cluster; 0 when none (FR-204, ADR-006: no threshold). */
+  distinctAccounts: number;
 }
 
 export interface DemoPreset {
@@ -257,7 +282,6 @@ export interface DemoState {
   evidence: Evidence[];
   topics: Topic[];
   narrativeItems: NarrativeItem[];
-  optionalAccountAggregates: AccountAggregate[];
   demoPreset: DemoPreset;
   narrativeClusters: NarrativeCluster[];
   correlations: MultiSourceCorrelation[];

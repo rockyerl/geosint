@@ -360,17 +360,6 @@ export const INITIAL_FIXTURE: DemoState = {
       authorAccount: "@anon_user",
     },
   ],
-  optionalAccountAggregates: [
-    {
-      aoiId: "AOI-01",
-      window: {
-        from: "2026-11-15T09:00:00+07:00",
-        to: "2026-11-17T09:00:00+07:00",
-      },
-      distinctAccounts: 3,
-      locationCoverage: "available",
-    },
-  ],
   narrativeClusters: [
     {
       id: "NAR-01",

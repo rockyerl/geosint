@@ -207,3 +207,9 @@ Supersedes the §4.1 verdicts listed here. Verified by `pnpm check` for commit 5
 - DS-1 (dashboard → compare → review → refused resolve → B-102/B-101 → resolve → briefing v1/v2 → pimpinan → reset) and DS-3 were walked offline in the browser with `playwright-cli`. All steps pass.
 - Found and fixed: the briefing page showed v1 even when v2 was the newest version, because the selected version was set before the stored state loaded (`briefing-view.tsx`, spec 001 T014).
 - Leadership projection checked: no internal notes, no draft, no resolve hint.
+
+## 13. Update 2026-11-19 — spec 002 logic built
+
+- Narrative clustering, distinct-account counting and actor links are now computed in `analysis.ts` (built, not verified).
+- The RAB threshold is gone from the repository.
+- The UI still shows the hand-typed `narrativeClusters` and hard-coded `>= 10` labels until T209–T212.

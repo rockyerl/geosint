@@ -363,22 +363,6 @@ describe("GEOSINT Prototype Verification (G-DEMO-01 s/d G-DEMO-21)", () => {
     }
   });
 
-  // G-DEMO-14: Buka agregat opsional di preset Aruna
-  // Fixture di bawah ambang menampilkan status cakupan tanpa angka. Agregat akun tidak mengubah jumlah konten topik.
-  it("G-DEMO-14: Optional account aggregate under RAB threshold (3 < 10) flags status without altering narrative count", () => {
-    const preset = repo.getState().demoPreset;
-    const res = repo.getCorrelationWorkspace("analis", preset.aoiId, preset.window, preset.topicId);
-    expect(res.success).toBe(true);
-
-    if (res.success) {
-      expect(res.data.accountAggregate).toBeDefined();
-      expect(res.data.accountAggregate?.distinctAccounts).toBe(3); // 3 < 10 threshold
-      expect(res.data.accountAggregateStatus).toBe("below_threshold");
-      // Agregat akun tidak mengubah jumlah konten topik (tetap 10 konten)
-      expect(res.data.narrativeItemsInWindow.length).toBe(10);
-    }
-  });
-
   // G-DEMO-15: Terbitkan briefing awal, impor E-06, lalu terbitkan ulang
   // Versi awal memuat korelasi dan permintaan cek. Setelah impor, versi awal tetap tersimpan (tidak dihapus).
   // Versi baru memuat laporan lanjutan dan hasil peninjauan analis.

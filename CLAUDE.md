@@ -120,7 +120,7 @@ Details and evidence: `docs/project_state.md`.
 - Fixture inconsistencies: NC-01..10 have 10 distinct handles but aggregate says 3;
   `NAR-01.totalContent` 10 vs 3 items; `CORR-01` geo flag contradicts `NAR-01`.
 - `repository.ts:512-522` and `types.ts:192` apply a misread "RAB 10 akun" threshold (ADR-006).
-  Spec 002 removes it.
+  Spec 002 removes it. **Update 2026-11-19:** removed from repository and types (spec 002 T203); UI labels remain until T209–T212.
 - `tests/unit/geosint.test.ts` describe label says "01 s/d 10" (there are 15);
   G-DEMO-15 claims "v1 archived" but no archive exists.
 - Topic `TOP-02` is used by `NAR-02` / `N-201` but not defined. The Sagara demo scenario

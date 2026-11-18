@@ -25,9 +25,18 @@ import {
   NarrativeItem,
   TimeWindow,
   CorrelationWorkspaceData,
-  CorrelationTrendBucket,
   CorrelationFinding,
+  AccountProfile,
+  ActorLink,
 } from "./types";
+import {
+  clusterId,
+  computeAccountProfile,
+  computeActorLinks,
+  computeNarrativeClusters,
+  computeTrendBuckets,
+  isValidWindow,
+} from "./analysis";
 
 export function getSourceFreshness(source: Source, demoNow: string): SourceFreshness {
   if (!source.lastSuccessfulImportAt) {
@@ -125,7 +134,7 @@ export function generateDraftSummary(
 
   if (event.kind === "flood") {
     findings = `Satelit Sentinel (Radar SAR simulasi SC-02) merekam indikasi genangan di alur ${areaName} koordinat [20, 68]. Laporan awal internal (E-03) mencatat satu akses dialihkan. Klaster narasi Akses Aruna Terputus (TOP-01) merekam kenaikan volume dari 2 menjadi 8 konten menyebut Aruna dalam dua periode 24 jam berturut-turut (total 10 konten).`;
-    limitations = `Indikasi genangan SAR teramati secara spasial, namun kepastian keterputusan total jembatan dan batas kedalaman air masih memerlukan verifikasi fisik lapangan. Terdapat satu konten tanpa metadata wilayah (NC-11) dan agregat akun di bawah ambang batas minimum RAB (3 < 10 akun).`;
+    limitations = `Indikasi genangan SAR teramati secara spasial, namun kepastian keterputusan total jembatan dan batas kedalaman air masih memerlukan verifikasi fisik lapangan. Terdapat satu konten tanpa metadata wilayah (NC-11).`;
     nextAction = `Pimpinan menginstruksikan petugas lapangan segera mengecek akses jembatan KM 14 di Sektor Aruna dan melaporkan kondisi terkini untuk penilaian kesiapan rute latihan.`;
   } else if (event.kind === "hotspot") {
     // D2: once a field confirmation is linked, the draft states "bukan ancaman" (DS-3); spec 004 replaces the template.
@@ -153,8 +162,7 @@ export function generateDraftSummary(
 // ---------------------------------------------------------------------------
 
 type ImportValidation =
-  | { ok: true; evidence: Evidence; event: GeoEvent; source: Source }
-  | { ok: false; reason: string };
+  { ok: true; evidence: Evidence; event: GeoEvent; source: Source } | { ok: false; reason: string };
 
 export class GeosintRepository {
   private state: DemoState;
@@ -179,6 +187,29 @@ export class GeosintRepository {
   private recordAudit(entry: Omit<AuditEntry, "id">): void {
     const id = `AUD-${String(this.state.audits.length + 1).padStart(4, "0")}`;
     this.state.audits.unshift({ id, ...entry });
+  }
+
+  /** Analyst-only and valid-window guard shared by the narrative/actor reads (spec 002 FR-207, NAC-09/10). */
+  private analystWindowError(
+    role: Role,
+    window: TimeWindow,
+    what: string
+  ): { success: false; code: "FORBIDDEN" | "INVALID_WINDOW"; error: string } | null {
+    if (role !== "analis") {
+      return {
+        success: false,
+        code: "FORBIDDEN",
+        error: `Hanya Analis yang berhak mengakses ${what}`,
+      };
+    }
+    if (!isValidWindow(window)) {
+      return {
+        success: false,
+        code: "INVALID_WINDOW",
+        error: "Rentang waktu tidak valid: waktu awal harus lebih awal dari waktu akhir",
+      };
+    }
+    return null;
   }
 
   /** Validates references in an import batch (FIX-006). Order matters: area, payload, event, source. */
@@ -481,24 +512,11 @@ export class GeosintRepository {
         code: "FORBIDDEN" | "INVALID_WINDOW" | "NOT_FOUND";
         error: string;
       } {
-    if (role !== "analis") {
-      return {
-        success: false,
-        code: "FORBIDDEN",
-        error: "Hanya Analis yang berhak mengakses ruang kerja korelasi",
-      };
-    }
+    const guard = this.analystWindowError(role, window, "ruang kerja korelasi");
+    if (guard) return guard;
 
     const fromMs = new Date(window.from).getTime();
     const toMs = new Date(window.to).getTime();
-
-    if (isNaN(fromMs) || isNaN(toMs) || fromMs >= toMs) {
-      return {
-        success: false,
-        code: "INVALID_WINDOW",
-        error: "Rentang waktu tidak valid: waktu awal harus lebih awal dari waktu akhir",
-      };
-    }
 
     const aoi = this.state.areas.find((a) => a.id === aoiId);
     if (!aoi) {
@@ -548,43 +566,16 @@ export class GeosintRepository {
       return t >= fromMs && t < toMs;
     });
 
-    // 24-Hour Trend Buckets
-    const durationMs = toMs - fromMs;
-    const bucketDurationMs = 24 * 60 * 60 * 1000;
-    const numBuckets = Math.max(1, Math.ceil(durationMs / bucketDurationMs));
-    const narrativeTrendBuckets: CorrelationTrendBucket[] = [];
-
-    for (let i = 0; i < numBuckets; i++) {
-      const bFromMs = fromMs + i * bucketDurationMs;
-      const bToMs = Math.min(toMs, bFromMs + bucketDurationMs);
-      const bFromIso = new Date(bFromMs).toISOString();
-      const bToIso = new Date(bToMs).toISOString();
-
-      const count = narrativeItemsInWindow.filter((item) => {
-        const itemMs = new Date(item.publishedAt).getTime();
-        return itemMs >= bFromMs && itemMs < bToMs;
-      }).length;
-
-      narrativeTrendBuckets.push({
-        bucketIndex: i,
-        from: bFromIso,
-        to: bToIso,
-        count,
-        label: i === 0 ? "24 Jam Pertama" : i === 1 ? "24 Jam Kedua" : `24 Jam ke-${i + 1}`,
-      });
-    }
-
-    // Optional Account Aggregate
-    const accountAggregate = this.state.optionalAccountAggregates.find(
-      (a) => a.aoiId === aoiId && a.window.from === window.from && a.window.to === window.to
+    const narrativeTrendBuckets = computeTrendBuckets(
+      narrativeItemsInWindow.map((n) => n.publishedAt),
+      window
     );
 
-    let accountAggregateStatus: "below_threshold" | "valid" | "not_available" = "not_available";
-    if (accountAggregate) {
-      // Ambang batas RAB: minimum 10 akun unik
-      accountAggregateStatus =
-        accountAggregate.distinctAccounts >= 10 ? "valid" : "below_threshold";
-    }
+    // Computed, never thresholded (ADR-006)
+    const narrativeCluster =
+      computeNarrativeClusters(this.state.narrativeItems, window).find(
+        (c) => c.id === clusterId(topicId, aoiId)
+      ) ?? null;
 
     // Candidate Correlations
     const candidateCorrelations: CorrelationFinding[] = [];
@@ -630,10 +621,53 @@ export class GeosintRepository {
         narrativeItemsInWindow,
         unlocatedNarrativeItems,
         candidateCorrelations,
-        accountAggregate,
-        accountAggregateStatus,
+        narrativeCluster,
+        distinctAccounts: narrativeCluster?.distinctAccounts ?? 0,
       },
     };
+  }
+
+  /** Accounts and the areas/events they link in a window; analyst only (spec 002 FR-205, FR-207). */
+  public getActorLinks(
+    role: Role,
+    window: TimeWindow
+  ):
+    | { success: true; actors: ActorLink[] }
+    | { success: false; code: "FORBIDDEN" | "INVALID_WINDOW"; error: string } {
+    const guard = this.analystWindowError(role, window, "tautan aktor");
+    if (guard) return guard;
+    return {
+      success: true,
+      actors: structuredClone(
+        computeActorLinks(this.state.narrativeItems, this.state.events, window)
+      ),
+    };
+  }
+
+  /** One account's timeline in a window; analyst only (spec 002 FR-206, FR-207). */
+  public getAccountProfile(
+    role: Role,
+    account: string,
+    window: TimeWindow
+  ):
+    | { success: true; profile: AccountProfile }
+    | { success: false; code: "FORBIDDEN" | "INVALID_WINDOW" | "NOT_FOUND"; error: string } {
+    const guard = this.analystWindowError(role, window, "profil akun");
+    if (guard) return guard;
+    const profile = computeAccountProfile(
+      this.state.narrativeItems,
+      this.state.events,
+      window,
+      account
+    );
+    if (!profile) {
+      return {
+        success: false,
+        code: "NOT_FOUND",
+        error: `Akun ${account} tidak memiliki konten dalam rentang waktu ini`,
+      };
+    }
+    return { success: true, profile: structuredClone(profile) };
   }
 
   public getNarrativeItem(

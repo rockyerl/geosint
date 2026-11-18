@@ -44,3 +44,11 @@ Changes to rows above (rows kept as written; these notes win):
 | M-203 | Old v2 `localStorage` state self-heals to v3 on load                                                      |
 | M-204 | No "di bawah ambang" text appears anywhere in the UI                                                      |
 | M-205 | DS-2 on `/narasi`: concentration map, Aruna cluster, actors, `@radar_lintas` timeline (update 2026-11-18) |
+
+### Update 2026-11-19 — tests written with T201–T204
+
+- Written now on the v2 seed: NAC-01 (TOP-01 part), NAC-02, NAC-03, NAC-05, NAC-06, NAC-08, NAC-09, NAC-10.
+- NAC-10 also covers `getCorrelationWorkspace`.
+- NAC-15 (inline items): `computeActorLinks` flags cross-event accounts, ignores out-of-window and handle-less items, and sorts by account.
+- NAC-16 (inline): `computeConcentration` breaks ties by content then `aoiId`, and `computeNarrativeClusters` is order-independent.
+- NAC-17: `getAccountProfile` for an unknown account returns `NOT_FOUND`.
